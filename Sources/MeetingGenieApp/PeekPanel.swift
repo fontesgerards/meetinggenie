@@ -33,4 +33,13 @@ final class PeekPanel: NSPanel {
     // Allow the panel to take key status when the quick-add field deliberately
     // requests it (R25). It will not become key on its own (non-activating).
     override var canBecomeKey: Bool { true }
+
+    // Required on macOS 26: AppKit constrains a window so its top can't sit
+    // above the menu bar, pushing the peek down by the menu-bar height — even
+    // at .screenSaver level. Returning the rect unchanged lets the panel render
+    // flush against the physical top edge. (The pixel-snap + 1pt bleed in
+    // NotchGeometry.peekFrame remove the residual hairline seam.)
+    override func constrainFrameRect(_ frameRect: NSRect, to screen: NSScreen?) -> NSRect {
+        frameRect
+    }
 }
