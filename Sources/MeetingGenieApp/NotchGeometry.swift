@@ -10,18 +10,56 @@ enum NotchGeometry {
         return false
     }
 
-    /// Frame for the peek: centered horizontally, tucked just under the notch on
-    /// a notch display; on a non-notch / external display falls back to a
-    /// floating HUD near top-center (origin R8 fallback).
+    /// The screen to render the peek on: the built-in notch display when one
+    /// exists, else the main screen. `NSScreen.main` follows the active window
+    /// and is unreliable for a background agent, which placed the panel on the
+    /// wrong screen / below the menu bar.
+    static func targetScreen() -> NSScreen? {
+        NSScreen.screens.first(where: hasNotch) ?? NSScreen.main
+    }
+
+    /// Height of the notch / menu-bar safe-area band on this screen, used as the
+    /// peek's top padding so its first line clears the notch.
+    static func notchHeight(_ screen: NSScreen) -> CGFloat {
+        if #available(macOS 12, *) { return screen.safeAreaInsets.top }
+        return 0
+    }
+
+    /// Physical notch width (the empty center gap in the menu bar), derived from
+    /// the auxiliary areas that flank it. Returns 0 on a non-notch display.
+    static func notchWidth(_ screen: NSScreen) -> CGFloat {
+        if #available(macOS 12, *),
+           let left = screen.auxiliaryTopLeftArea?.width,
+           let right = screen.auxiliaryTopRightArea?.width,
+           screen.safeAreaInsets.top > 0 {
+            return max(0, screen.frame.width - left - right)
+        }
+        return 0
+    }
+
+    /// Frame for the peek: centered horizontally and flush against the very top
+    /// of the screen, so a black panel reads as the notch growing downward. The
+    /// view supplies its own top padding (= notchHeight) to clear the notch.
+    ///
+    /// Two seam fixes (researched 2026-05-29): the frame is snapped to physical
+    /// pixel boundaries via `backingAlignedRect` (a fractional `frame.maxY` on a
+    /// Retina display otherwise rounds the top edge down by one pixel), and the
+    /// panel bleeds 1pt above the top edge so the straight top edge has no
+    /// hairline gap. `.screenSaver` level already bypasses the menu-bar clamp,
+    /// so no `constrainFrameRect` override is needed.
     static func peekFrame(on screen: NSScreen, size: CGSize) -> NSRect {
-        let visible = screen.frame
-        let x = visible.midX - size.width / 2
-        let topInset: CGFloat
-        if #available(macOS 12, *) { topInset = screen.safeAreaInsets.top } else { topInset = 0 }
-        // On a notch display, sit below the menu-bar/notch band; on a non-notch
-        // display, hang a few points down from the top edge.
-        let gap = max(topInset, 8) + 4
-        let y = visible.maxY - size.height - gap
-        return NSRect(x: x, y: y, width: size.width, height: size.height)
+        let f = screen.frame
+        var rect = NSRect(
+            x: f.midX - size.width / 2,
+            y: f.maxY - size.height, // top edge at the physical top
+            width: size.width,
+            height: size.height
+        )
+        rect = screen.backingAlignedRect(
+            rect,
+            options: [.alignMinXOutward, .alignMaxYOutward, .alignWidthOutward, .alignHeightOutward]
+        )
+        rect.size.height += 1 // bleed 1pt above the top edge — seamless flush
+        return rect
     }
 }
