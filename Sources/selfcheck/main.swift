@@ -91,6 +91,8 @@ func hm(_ s: String) -> (Int, Int)? {
 check("parses 2:00pm -> 14:00", hm("2:00pm").map { $0 == (14, 0) } == true)
 check("parses 9am -> 09:00", hm("9am").map { $0 == (9, 0) } == true)
 check("parses 14:30", hm("14:30").map { $0 == (14, 30) } == true)
+check("parses leading-zero 09:00am", hm("09:00am").map { $0 == (9, 0) } == true)
+check("parses leading-zero 02:00pm", hm("02:00pm").map { $0 == (14, 0) } == true)
 check("rejects garbage", hm("not-a-time") == nil)
 check("rejects out-of-range 13pm", TimeParser.parse("13pm", on: ref, calendar: cal) == nil)
 check("rejects out-of-range 24:00", TimeParser.parse("24:00", on: ref, calendar: cal) == nil)

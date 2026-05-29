@@ -143,6 +143,11 @@ private let twoThirty = Date(timeIntervalSince1970: 1_700_001_800)
         #expect(TimeParser.parse("not-a-time", on: reference, calendar: calendar) == nil)
     }
 
+    @Test func parsesLeadingZeroHours() {
+        #expect(hm(TimeParser.parse("09:00am", on: reference, calendar: calendar))! == (9, 0))
+        #expect(hm(TimeParser.parse("02:00pm", on: reference, calendar: calendar))! == (14, 0))
+    }
+
     @Test func rejectsOutOfRangeTimes() {
         // DateFormatter would silently "fix up" these; the round-trip guard rejects them.
         #expect(TimeParser.parse("13pm", on: reference, calendar: calendar) == nil)

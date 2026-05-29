@@ -95,6 +95,7 @@ final class PeekController {
         // store count (R13, R16). A rejected add is a silent no-op for v1.
         try? service.addPoint(entryID: id, text: text)
         refreshModel(id: id)
+        updatePanelFrame() // grow the panel so the new point isn't clipped
         panel?.resignKey()
     }
 
@@ -131,14 +132,18 @@ final class PeekController {
             if #available(macOS 13.3, *) { host.safeAreaRegions = [] }
             panel = PeekPanel(content: host)
         }
-        if let panel, let screen {
-            // Flush against the top of the screen; height = notch clearance +
-            // a row per point + chrome (title, add row, padding).
-            let rows = max(model.points.count, 1)
-            let height = model.topInset + CGFloat(rows) * 26 + 76
-            let size = CGSize(width: 360, height: height)
-            panel.setFrame(NotchGeometry.peekFrame(on: screen, size: size), display: true)
-        }
+        updatePanelFrame()
         panel?.orderFrontRegardless() // appears without activating the app (R9)
+    }
+
+    /// Size the panel flush to the top of the screen, tall enough for the
+    /// current point count. Called on present and after quick-add so a new
+    /// point is never clipped.
+    private func updatePanelFrame() {
+        guard let panel, let screen = NotchGeometry.targetScreen() else { return }
+        let rows = max(model.points.count, 1)
+        let height = model.topInset + CGFloat(rows) * 26 + 76 // notch clearance + rows + chrome
+        let size = CGSize(width: PeekView.width, height: height)
+        panel.setFrame(NotchGeometry.peekFrame(on: screen, size: size), display: true)
     }
 }
