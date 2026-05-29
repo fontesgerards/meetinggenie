@@ -119,15 +119,25 @@ final class PeekController {
     // MARK: - Panel plumbing
 
     private func presentPanel() {
+        let screen = NotchGeometry.targetScreen()
+        model.topInset = screen.map(NotchGeometry.notchHeight) ?? 0
+        model.notchWidth = screen.map(NotchGeometry.notchWidth) ?? 0
         if panel == nil {
             // SwiftUI-in-NSPanel seam (plan review FE1): host the SwiftUI view in
             // an NSHostingView as the panel's content.
             let host = NSHostingView(rootView: PeekView(model: model))
-            host.frame = NSRect(x: 0, y: 0, width: 360, height: 140)
+            // Don't let SwiftUI inset the black fill by the notch/menu-bar safe
+            // area — the fill must reach the physical top edge.
+            if #available(macOS 13.3, *) { host.safeAreaRegions = [] }
             panel = PeekPanel(content: host)
         }
-        if let panel, let screen = NSScreen.main {
-            panel.setFrame(NotchGeometry.peekFrame(on: screen, size: panel.frame.size), display: true)
+        if let panel, let screen {
+            // Flush against the top of the screen; height = notch clearance +
+            // a row per point + chrome (title, add row, padding).
+            let rows = max(model.points.count, 1)
+            let height = model.topInset + CGFloat(rows) * 26 + 76
+            let size = CGSize(width: 360, height: height)
+            panel.setFrame(NotchGeometry.peekFrame(on: screen, size: size), display: true)
         }
         panel?.orderFrontRegardless() // appears without activating the app (R9)
     }

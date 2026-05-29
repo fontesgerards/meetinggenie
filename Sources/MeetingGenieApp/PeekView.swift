@@ -8,6 +8,8 @@ final class PeekModel: ObservableObject {
     @Published var title: String = ""
     @Published var points: [Point] = []
     @Published var quickAddVisible: Bool = false
+    @Published var topInset: CGFloat = 0   // notch/menu-bar band height to clear
+    @Published var notchWidth: CGFloat = 0 // physical notch width (0 = no notch)
 
     var onToggle: (Int) -> Void = { _ in }
     var onDismiss: () -> Void = {}
@@ -20,16 +22,32 @@ final class PeekModel: ObservableObject {
 /// stray tap can't archive the list (origin R12, R13, R14, R25; AE4).
 @available(macOS 13, *)
 struct PeekView: View {
+    static let width: CGFloat = 360
+
     @ObservedObject var model: PeekModel
     @State private var draft: String = ""
     @FocusState private var fieldFocused: Bool
 
+    /// Menu-bar-safe T-shape when on a notch display (tab = notch width within
+    /// the band, widening below it); plain concave-top rounded shape otherwise.
+    private var peekClip: AnyShape {
+        if model.topInset > 0, model.notchWidth > 1, model.notchWidth < Self.width {
+            return AnyShape(NotchTShape(
+                notchWidth: model.notchWidth,
+                bandHeight: model.topInset,
+                shoulderRadius: 12,
+                bottomRadius: 20
+            ))
+        }
+        return AnyShape(NotchShape(topCornerRadius: 11, bottomCornerRadius: 20))
+    }
+
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
-            VStack(alignment: .leading, spacing: 5) {
+            VStack(alignment: .leading, spacing: 6) {
                 Text(model.title)
                     .font(.caption2)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.white.opacity(0.55))
 
                 ForEach(Array(model.points.enumerated()), id: \.offset) { index, point in
                     Button {
@@ -37,10 +55,10 @@ struct PeekView: View {
                     } label: {
                         HStack(spacing: 6) {
                             Image(systemName: point.checked ? "checkmark.circle.fill" : "circle")
-                                .foregroundStyle(point.checked ? .green : .secondary)
+                                .foregroundStyle(point.checked ? Color.green : Color.white.opacity(0.5))
                             Text(point.text)
-                                .strikethrough(point.checked, color: .secondary)
-                                .foregroundStyle(point.checked ? .secondary : .primary)
+                                .strikethrough(point.checked, color: .white.opacity(0.4))
+                                .foregroundStyle(point.checked ? Color.white.opacity(0.45) : Color.white)
                                 .lineLimit(2)
                         }
                         .contentShape(Rectangle())
@@ -63,7 +81,7 @@ struct PeekView: View {
                             .font(.caption2)
                     }
                     .buttonStyle(.plain)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.white.opacity(0.55))
                 }
             }
 
@@ -74,14 +92,17 @@ struct PeekView: View {
                 model.onDismiss()
             } label: {
                 Image(systemName: "xmark.circle.fill")
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.white.opacity(0.5))
             }
             .buttonStyle(.plain)
             .help("Done — archive these points")
         }
-        .padding(10)
-        .frame(width: 360, alignment: .leading)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+        .padding(.horizontal, 18)
+        .padding(.bottom, 14)
+        .padding(.top, model.topInset + 8) // clear the notch
+        .frame(width: Self.width, alignment: .leading)
+        .background(Color.black)
+        .clipShape(peekClip)
         .onChange(of: model.quickAddVisible) { visible in
             if visible { fieldFocused = true }
         }
