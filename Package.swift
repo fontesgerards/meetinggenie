@@ -7,6 +7,8 @@ let package = Package(
     products: [
         .library(name: "NotchCore", targets: ["NotchCore"]),
         .executable(name: "notch", targets: ["notch"]),
+        .executable(name: "MeetingGenie", targets: ["MeetingGenieApp"]),
+        .executable(name: "overlay-spike", targets: ["OverlaySpike"]),
         .executable(name: "selfcheck", targets: ["selfcheck"]),
     ],
     targets: [
@@ -17,6 +19,15 @@ let package = Package(
         .executableTarget(
             name: "notch",
             dependencies: ["NotchCore"],
+            swiftSettings: [.swiftLanguageMode(.v5)]
+        ),
+        .executableTarget(
+            name: "MeetingGenieApp",
+            dependencies: ["NotchCore"],
+            swiftSettings: [.swiftLanguageMode(.v5)]
+        ),
+        .executableTarget(
+            name: "OverlaySpike",
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
         .executableTarget(
