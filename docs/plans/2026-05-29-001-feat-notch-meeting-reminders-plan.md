@@ -290,6 +290,7 @@ Origin requirements (R-IDs) mapped to the units that satisfy them. Origin actors
 
 ### Resolved before planning
 - **Notch-over-fullscreen + capture exclusion feasibility** → reframed as the U1 spike (gate) plus the R24 best-effort decision. The conflict between "above fullscreen" and "hidden from full-display share" on macOS 15 is accepted; U1 records the empirical capture matrix.
+  - **U1 result (2026-05-29, macOS 26.2):** ✅ the overlay renders correctly above a Zoom call in native fullscreen — the above-fullscreen recipe works on macOS 26, validating the notch-only positioning. Capture-matrix (screen-share leak) still to be recorded, but it does not block: R24 is already accepted as best-effort.
 
 ### Deferred to implementation
 - Minimum supported macOS version (14 vs 15) and whether to ship a different capture posture per version — finalized from the U1 matrix.
