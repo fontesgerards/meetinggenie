@@ -73,8 +73,18 @@ struct NotchTShape: Shape {
         let l = cx - halfNotch // notch tab left edge
         let r = cx + halfNotch // notch tab right edge
         let bh = min(bandHeight, rect.height)
-        let sr = min(shoulderRadius, bh, halfNotch)
-        let br = min(bottomRadius, (rect.width - notchWidth) / 2, rect.height - bh)
+        var sr = max(0, min(shoulderRadius, bh, halfNotch))
+        var br = max(0, min(bottomRadius, rect.height - bh))
+        // The shoulder flare and the body corner share the horizontal space on
+        // each side of the notch; scale them down proportionally if they'd
+        // overlap (wide notch / small screen), which would otherwise self-
+        // intersect the path.
+        let availableSide = max(0, rect.width / 2 - halfNotch)
+        if sr + br > availableSide, sr + br > 0 {
+            let scale = availableSide / (sr + br)
+            sr *= scale
+            br *= scale
+        }
 
         var path = Path()
 
