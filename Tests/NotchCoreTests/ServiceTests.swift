@@ -74,6 +74,47 @@ private let twoThirty = Date(timeIntervalSince1970: 1_700_001_800)
             try svc.addPoint(at: twoPM, text: "x")
         }
     }
+
+    // MARK: entry-by-id ops used by the app
+
+    @Test func setCheckedAndAddPointByID() throws {
+        let svc = makeService()
+        let entry = try svc.createEntry(at: twoPM, points: ["a", "b"])
+        try svc.setChecked(entryID: entry.id, index: 0, checked: true)
+        #expect(svc.entry(id: entry.id)?.points.first?.checked == true)
+        try svc.addPoint(entryID: entry.id, text: "c")
+        #expect(svc.entry(id: entry.id)?.points.count == 3)
+    }
+
+    @Test func addPointByIDEnforcesCapAgainstFreshStore() throws {
+        let svc = makeService()
+        let atCap = (1...Limits.maxPointsPerEntry).map { "p\($0)" }
+        let entry = try svc.createEntry(at: twoPM, points: atCap)
+        #expect(throws: ValidationError.tooManyPoints(max: Limits.maxPointsPerEntry)) {
+            try svc.addPoint(entryID: entry.id, text: "overflow")
+        }
+    }
+
+    @Test func archiveThenReopenToday() throws {
+        let svc = makeService()
+        let entry = try svc.createEntry(at: Date(), points: ["a"]) // today
+        try svc.setChecked(entryID: entry.id, index: 0, checked: true)
+        try svc.archive(entryID: entry.id)
+        #expect(try svc.list().isEmpty)
+        #expect(svc.hasReopenableToday())
+        let reopened = try svc.reopenLatestArchivedToday()
+        #expect(reopened?.id == entry.id)
+        #expect(reopened?.points.first?.checked == true)
+        #expect(try svc.list().count == 1)
+    }
+
+    @Test func archivedEntryFromAnotherDayIsNotReopenableToday() throws {
+        let svc = makeService()
+        let entry = try svc.createEntry(at: Date(timeIntervalSince1970: 1_000_000), points: ["old"])
+        try svc.archive(entryID: entry.id)
+        #expect(!svc.hasReopenableToday())
+        #expect(try svc.reopenLatestArchivedToday() == nil)
+    }
 }
 
 @Suite struct TimeParserTests {
@@ -100,5 +141,17 @@ private let twoThirty = Date(timeIntervalSince1970: 1_700_001_800)
 
     @Test func rejectsGarbage() {
         #expect(TimeParser.parse("not-a-time", on: reference, calendar: calendar) == nil)
+    }
+
+    @Test func rejectsOutOfRangeTimes() {
+        // DateFormatter would silently "fix up" these; the round-trip guard rejects them.
+        #expect(TimeParser.parse("13pm", on: reference, calendar: calendar) == nil)
+        #expect(TimeParser.parse("24:00", on: reference, calendar: calendar) == nil)
+        #expect(TimeParser.parse("25:99", on: reference, calendar: calendar) == nil)
+    }
+
+    @Test func displayIsInverseOfParse() {
+        let date = TimeParser.parse("2:00pm", on: reference, calendar: calendar)!
+        #expect(TimeFormatting.display(date) == "2:00pm")
     }
 }

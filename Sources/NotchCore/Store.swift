@@ -39,11 +39,29 @@ public final class Store {
     public func save(_ store: StoreData) throws {
         try ensureDirectory()
         let data = try Self.encoder.encode(store)
-        try data.write(to: url, options: [.atomic])
-        try FileManager.default.setAttributes(
-            [.posixPermissions: 0o600],
-            ofItemAtPath: url.path
-        )
+
+        // Write to a sibling temp file that is created 0600 *before* any bytes
+        // land, then atomically move it into place. This closes the window
+        // where Data.write(.atomic) would briefly expose the notes at the
+        // umask default (0644), and guarantees a crash never leaves a
+        // world-readable store (R17).
+        let dir = url.deletingLastPathComponent()
+        let tmp = dir.appendingPathComponent(".store.\(UUID().uuidString).tmp")
+        let fm = FileManager.default
+        fm.createFile(atPath: tmp.path, contents: nil, attributes: [.posixPermissions: 0o600])
+        do {
+            try data.write(to: tmp) // in-place write preserves the 0600 perms
+            if fm.fileExists(atPath: url.path) {
+                _ = try fm.replaceItemAt(url, withItemAt: tmp)
+            } else {
+                try fm.moveItem(at: tmp, to: url)
+            }
+        } catch {
+            try? fm.removeItem(at: tmp)
+            throw error
+        }
+        // replaceItemAt may adopt the destination's metadata; re-assert 0600.
+        try fm.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
         excludeFromBackup()
     }
 

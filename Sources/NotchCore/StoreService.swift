@@ -80,16 +80,84 @@ public final class StoreService {
     public func list() throws -> [Entry] {
         try store.load().entries.sorted { $0.startTime < $1.startTime }
     }
+
+    // MARK: - Entry-by-id operations (used by the app's peek interactions)
+    //
+    // These read the store fresh on each call and mutate one targeted field, so
+    // a concurrent CLI write to the same entry is not clobbered by a stale
+    // in-memory snapshot, and the per-entry cap is always checked against the
+    // persisted count (R12, R13, R16).
+
+    public func entry(id: UUID) -> Entry? {
+        (try? store.load())?.entries.first { $0.id == id }
+    }
+
+    public func addPoint(entryID: UUID, text: String) throws {
+        let clean = try Validation.validatePoint(text)
+        var data = try store.load()
+        guard let idx = data.entries.firstIndex(where: { $0.id == entryID }) else {
+            throw ServiceError.noEntryID
+        }
+        if data.entries[idx].points.count + 1 > Limits.maxPointsPerEntry {
+            throw ValidationError.tooManyPoints(max: Limits.maxPointsPerEntry)
+        }
+        data.entries[idx].points.append(Point(text: clean))
+        try store.save(data)
+    }
+
+    public func setChecked(entryID: UUID, index: Int, checked: Bool) throws {
+        var data = try store.load()
+        guard let idx = data.entries.firstIndex(where: { $0.id == entryID }),
+              data.entries[idx].points.indices.contains(index) else {
+            throw ServiceError.noPoint(index: index)
+        }
+        data.entries[idx].points[index].checked = checked
+        try store.save(data)
+    }
+
+    /// Move an entry from the active set into the retained archive (R11, R15).
+    public func archive(entryID: UUID) throws {
+        var data = try store.load()
+        guard let idx = data.entries.firstIndex(where: { $0.id == entryID }) else { return }
+        let entry = data.entries.remove(at: idx)
+        data.archive.append(entry)
+        try store.save(data)
+    }
+
+    /// Move the most recent archived entry from today back into the active set
+    /// and return it (R22). Returns nil if none is eligible.
+    @discardableResult
+    public func reopenLatestArchivedToday(now: Date = Date(), calendar: Calendar = .current) throws -> Entry? {
+        var data = try store.load()
+        let candidates = data.archive.enumerated().filter {
+            calendar.isDate($0.element.startTime, inSameDayAs: now)
+        }
+        guard let pick = candidates.max(by: { $0.element.startTime < $1.element.startTime }) else {
+            return nil
+        }
+        let entry = data.archive.remove(at: pick.offset)
+        data.entries.append(entry)
+        try store.save(data)
+        return entry
+    }
+
+    public func hasReopenableToday(now: Date = Date(), calendar: Calendar = .current) -> Bool {
+        guard let data = try? store.load() else { return false }
+        return data.archive.contains { calendar.isDate($0.startTime, inSameDayAs: now) }
+    }
 }
 
 public enum ServiceError: Error, Equatable, CustomStringConvertible {
     case noEntry(at: Date)
+    case noEntryID
     case noPoint(index: Int)
 
     public var description: String {
         switch self {
         case .noEntry:
             return "no entry exists at that time"
+        case .noEntryID:
+            return "no entry exists with that id"
         case .noPoint(let index):
             return "no point at index \(index)"
         }

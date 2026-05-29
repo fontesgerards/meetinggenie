@@ -17,6 +17,7 @@ public final class StoreWatcher {
     private var source: DispatchSourceFileSystemObject?
     private var descriptor: Int32 = -1
     private var stopped = false
+    private var changePending = false
 
     public init(url: URL, queue: DispatchQueue = .main, onChange: @escaping () -> Void) {
         self.url = url
@@ -36,6 +37,18 @@ public final class StoreWatcher {
     }
 
     deinit { stop() }
+
+    /// Coalesce a burst of file-system events into a single `onChange` call
+    /// (events for one atomic save arrive within milliseconds).
+    private func scheduleCoalescedChange() {
+        guard !changePending else { return }
+        changePending = true
+        queue.asyncAfter(deadline: .now() + 0.05) { [weak self] in
+            guard let self, !self.stopped else { return }
+            self.changePending = false
+            self.onChange()
+        }
+    }
 
     private func arm() {
         guard !stopped else { return }
@@ -57,7 +70,10 @@ public final class StoreWatcher {
         src.setEventHandler { [weak self] in
             guard let self else { return }
             let flags = src.data
-            self.onChange()
+            // A single atomic save emits several events (delete of the old
+            // inode, then write/attr on the new one). Coalesce them into one
+            // onChange so the app reloads once per logical save, not 2-3x.
+            self.scheduleCoalescedChange()
             if flags.contains(.rename) || flags.contains(.delete) {
                 // Atomic replace swapped the inode — re-arm on the new file.
                 self.arm()
