@@ -12,12 +12,7 @@ func die(_ message: String) -> Never {
     exit(1)
 }
 
-func displayTime(_ date: Date) -> String {
-    let f = DateFormatter()
-    f.locale = Locale(identifier: "en_US_POSIX")
-    f.dateFormat = "h:mma"
-    return f.string(from: date).lowercased()
-}
+func displayTime(_ date: Date) -> String { TimeFormatting.display(date) }
 
 let usage = """
 usage:

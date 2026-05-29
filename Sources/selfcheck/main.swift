@@ -92,6 +92,36 @@ check("parses 2:00pm -> 14:00", hm("2:00pm").map { $0 == (14, 0) } == true)
 check("parses 9am -> 09:00", hm("9am").map { $0 == (9, 0) } == true)
 check("parses 14:30", hm("14:30").map { $0 == (14, 30) } == true)
 check("rejects garbage", hm("not-a-time") == nil)
+check("rejects out-of-range 13pm", TimeParser.parse("13pm", on: ref, calendar: cal) == nil)
+check("rejects out-of-range 24:00", TimeParser.parse("24:00", on: ref, calendar: cal) == nil)
+check("rejects out-of-range 25:99", TimeParser.parse("25:99", on: ref, calendar: cal) == nil)
+check("TimeFormatting round-trips 14:00 -> 2:00pm", TimeFormatting.display(TimeParser.parse("2:00pm", on: ref, calendar: cal)!) == "2:00pm")
+
+// MARK: StoreService entry-by-id ops (R12, R13, R16, R22)
+print("StoreService (entry-by-id):")
+do {
+    let svc = StoreService(store: Store(url: tempURL()))
+    let two = Date() // "today" so the reopen-today filter applies
+    let entry = try svc.createEntry(at: two, points: ["a", "b"])
+    try svc.setChecked(entryID: entry.id, index: 0, checked: true)
+    check("setChecked persists by id", svc.entry(id: entry.id)?.points.first?.checked == true)
+    try svc.addPoint(entryID: entry.id, text: "c")
+    check("addPoint(by id) appends", svc.entry(id: entry.id)?.points.count == 3)
+    // cap enforced against fresh store count, not a stale snapshot
+    try? svc.addPoint(entryID: entry.id, text: "d")
+    try? svc.addPoint(entryID: entry.id, text: "e")
+    try? svc.addPoint(entryID: entry.id, text: "f")
+    try? svc.addPoint(entryID: entry.id, text: "g") // now at cap (7)
+    check("addPoint over cap throws", (try? svc.addPoint(entryID: entry.id, text: "h")) == nil && svc.entry(id: entry.id)?.points.count == Limits.maxPointsPerEntry)
+    try svc.archive(entryID: entry.id)
+    check("archive removes from active", (try? svc.list().isEmpty) == true)
+    check("hasReopenableToday true after archive", svc.hasReopenableToday())
+    let reopened = try svc.reopenLatestArchivedToday()
+    check("reopen restores entry with checked state", reopened?.id == entry.id && reopened?.points.first?.checked == true)
+    check("reopen moves it back to active", (try? svc.list().count) == 1)
+} catch {
+    print("  FAIL StoreService entry-by-id threw: \(error)"); failures += 1
+}
 
 // MARK: StoreWatcher (R7)
 print("StoreWatcher:")

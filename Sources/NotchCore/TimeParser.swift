@@ -22,6 +22,11 @@ public enum TimeParser {
             formatter.dateFormat = format
             for candidate in candidates {
                 guard let parsed = formatter.date(from: candidate) else { continue }
+                // Round-trip guard: DateFormatter silently "fixes up" out-of-range
+                // input (e.g. "13pm" -> 1:00, "24:00" -> 00:00). Re-render the
+                // parsed value and require it to match the input, so garbage is
+                // rejected rather than producing a wrong time.
+                guard formatter.string(from: parsed).lowercased() == candidate.lowercased() else { continue }
                 let comps = calendar.dateComponents([.hour, .minute], from: parsed)
                 return calendar.date(
                     bySettingHour: comps.hour ?? 0,

@@ -7,7 +7,8 @@ import NotchCore
 @available(macOS 13, *)
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let store = Store()
-    private lazy var controller = PeekController(store: store)
+    private lazy var service = StoreService(store: store)
+    private lazy var controller = PeekController(service: service)
     private var scheduler: Scheduler?
     private var watcher: StoreWatcher?
     private var statusItem: NSStatusItem?

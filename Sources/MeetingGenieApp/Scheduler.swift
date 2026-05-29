@@ -23,21 +23,25 @@ final class Scheduler {
         timers.removeAll()
         guard let data = try? store.load() else { return }
 
-        for entry in data.entries where !firedEntryIDs.contains(entry.id) {
-            if entry.startTime <= now {
-                // Start time already passed (written late, or woke from sleep
-                // across it): surface immediately so the list isn't missed.
-                firedEntryIDs.insert(entry.id)
-                onTrigger(entry)
-            } else {
-                let timer = Timer(fire: entry.startTime, interval: 0, repeats: false) { [weak self] _ in
-                    guard let self else { return }
-                    self.firedEntryIDs.insert(entry.id)
-                    self.onTrigger(entry)
-                }
-                RunLoop.main.add(timer, forMode: .common)
-                timers.append(timer)
+        // Entries whose start time already passed (written late, or woke from
+        // sleep across them): surface only the MOST RECENT one. Firing every
+        // past entry in a single pass would flash and instantly archive all but
+        // the last (latest-wins). Mark the rest fired without showing them.
+        let duePast = data.entries.filter { !firedEntryIDs.contains($0.id) && $0.startTime <= now }
+        if let latest = duePast.max(by: { $0.startTime < $1.startTime }) {
+            for entry in duePast { firedEntryIDs.insert(entry.id) }
+            onTrigger(latest)
+        }
+
+        // Future entries get a timer each.
+        for entry in data.entries where !firedEntryIDs.contains(entry.id) && entry.startTime > now {
+            let timer = Timer(fire: entry.startTime, interval: 0, repeats: false) { [weak self] _ in
+                guard let self else { return }
+                self.firedEntryIDs.insert(entry.id)
+                self.onTrigger(entry)
             }
+            RunLoop.main.add(timer, forMode: .common)
+            timers.append(timer)
         }
 
         if let midnight = calendar.nextDate(

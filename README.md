@@ -72,6 +72,23 @@ needs manual testing on a Mac with a notch:
   handling to register taps; the focus handoff for quick-add is implemented but
   unverified. See the plan's review notes.
 
+## Known limitations (v1)
+
+Surfaced during code review; accepted for v1, tracked for follow-up:
+
+- **CLI addresses entries by time, within the day they're created.** `notch
+  add 2pm …` pins the entry to today; addressing the same entry by `2pm` on a
+  later day won't match (start time is date-bearing). v1 is same-day prep.
+- **Once the app archives an entry** (dismiss / latest-wins / midnight), the
+  CLI can no longer address it by time — `notch add-point <that time>` will not
+  find it. Re-prep creates a fresh entry.
+- **Live edits during an active peek aren't merged** from concurrent CLI writes
+  (live-pickup-during-peek was deferred, R7); the app reads at trigger time and
+  on file change re-arms scheduling, but a peek already on screen shows its
+  snapshot until re-shown.
+- **Quick-add focus return** uses `resignKey()` and may not always return focus
+  to the exact prior app — needs on-device verification.
+
 ## Deviation from the plan
 
 The plan's Output Structure assumed an Xcode project for the app target. This
