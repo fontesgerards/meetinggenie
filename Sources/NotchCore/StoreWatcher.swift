@@ -57,8 +57,9 @@ public final class StoreWatcher {
 
         descriptor = open(url.path, O_EVTONLY)
         guard descriptor >= 0 else {
-            // File not present yet — retry shortly so pre-launch writes are caught.
-            queue.asyncAfter(deadline: .now() + 0.5) { [weak self] in self?.arm() }
+            // File not present yet — retry periodically so pre-launch writes are
+            // caught, at a low cadence to avoid frequent CPU wakeups.
+            queue.asyncAfter(deadline: .now() + 2.0) { [weak self] in self?.arm() }
             return
         }
 

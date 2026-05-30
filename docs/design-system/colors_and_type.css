@@ -1,0 +1,154 @@
+/* ============================================================================
+   MeetingGenie — Color & Type Foundations
+   ----------------------------------------------------------------------------
+   MeetingGenie is a privacy-first macOS notch utility. Its entire visible
+   surface is a black "peek" that grows down out of the MacBook notch. The
+   palette and type are deliberately minimal: white text on true black, a
+   single green "done" accent, and the macOS system font (SF Pro) at caption
+   sizes. These tokens encode that bare-but-precise system and give it the
+   small amount of structure it was "left open for" in the design brief.
+
+   Source of truth: fontesgerards/meetinggenie
+     - Sources/MeetingGenieApp/PeekView.swift   (colors, opacities, type sizes)
+     - Sources/MeetingGenieApp/NotchShape.swift  (radii)
+     - Sources/MeetingGenieApp/PeekController.swift (spacing/row metrics)
+   ========================================================================== */
+
+:root {
+  /* ----- Core palette ----------------------------------------------------
+     The surface is true black so it is visually continuous with the physical
+     notch (SwiftUI `Color.black`). Everything else is white at graded opacity
+     — the app has no grey ramp, it expresses hierarchy purely through alpha. */
+  --mg-black:            #000000;   /* the peek surface — blends into the notch */
+  --mg-white:            #ffffff;   /* primary text & active icons             */
+
+  /* White-on-black opacity ladder (the real hierarchy system) */
+  --mg-text-primary:     rgba(255, 255, 255, 1.00); /* live point text          */
+  --mg-text-secondary:   rgba(255, 255, 255, 0.55); /* time label, "Add point"  */
+  --mg-icon-idle:        rgba(255, 255, 255, 0.50); /* hollow circle, × dismiss */
+  --mg-text-done:        rgba(255, 255, 255, 0.45); /* checked point text       */
+  --mg-strike:           rgba(255, 255, 255, 0.40); /* strikethrough rule       */
+  --mg-hairline:         rgba(255, 255, 255, 0.10); /* optional dividers/edges  */
+  --mg-field-fill:       rgba(255, 255, 255, 0.08); /* quick-add field bg       */
+
+  /* ----- Accent ----------------------------------------------------------
+     The single non-monochrome color: Apple systemGreen (dark variant), used
+     ONLY for the checked-off state. Green = "raised it." Nothing else is
+     ever colored. SwiftUI `Color.green` resolves to systemGreen on macOS. */
+  --mg-green:            #30d158;   /* systemGreen / dark — checkmark fill     */
+  --mg-green-light:      #34c759;   /* systemGreen / light (reference only)    */
+
+  /* ----- Type families ---------------------------------------------------
+     The app uses the macOS system font (SF Pro) exclusively. The system stack
+     below renders as SF Pro on Apple devices — the authentic look. The CLI &
+     store are monospaced contexts (terminal), so a mono stack is defined too. */
+  --mg-font-system: -apple-system, BlinkMacSystemFont, "SF Pro Text",
+                    "SF Pro Display", "Helvetica Neue", Helvetica, sans-serif;
+  --mg-font-mono:   ui-monospace, "SF Mono", "SFMono-Regular", Menlo,
+                    Monaco, "Cascadia Code", Consolas, monospace;
+
+  /* ----- Type scale ------------------------------------------------------
+     Mapped from the macOS text styles the app actually uses. The peek lives
+     entirely in caption/caption2 — it is a glance surface, not a document, so
+     the scale tops out small on purpose. px values are the macOS defaults. */
+  --mg-size-caption2:   11px;  /* time label, "Add point", smallest chrome     */
+  --mg-size-caption:    12px;  /* point rows, quick-add field text             */
+  --mg-size-body:       13px;  /* CLI / longer-form contexts                   */
+  --mg-size-headline:   15px;  /* section headers in docs/skill contexts       */
+  --mg-size-title:      22px;  /* marketing / doc display only — never in peek */
+
+  --mg-weight-regular:  400;
+  --mg-weight-medium:   500;   /* point text leans medium for legibility       */
+  --mg-weight-semibold: 600;   /* emphasis in chrome / docs                    */
+
+  /* Line heights — tight, because rows are fixed-height (26pt) glance lines */
+  --mg-leading-tight:   1.25;
+  --mg-leading-normal:  1.4;
+
+  /* Letter spacing — SF Pro at small sizes wants a hair of positive tracking */
+  --mg-tracking-caption: 0.01em;
+
+  /* ----- Geometry (radii) ------------------------------------------------
+     The notch silhouette. These are the exact pt values from NotchShape.swift
+     / NotchTShape. They are the most brand-defining numbers in the system. */
+  --mg-radius-shoulder:  12px;  /* concave shoulder flare (NotchTShape)         */
+  --mg-radius-bottom:    20px;  /* convex bottom corners of the panel           */
+  --mg-radius-top:       11px;  /* concave top corners (non-notch fallback)     */
+  --mg-radius-field:      6px;  /* quick-add rounded text field                 */
+  --mg-radius-pill:     999px;
+
+  /* ----- Spacing rhythm --------------------------------------------------
+     Pulled from PeekView padding + PeekController row math. The peek is built
+     on a 6 / 8 / 14 / 18 step; rows are a fixed 26pt tall. */
+  --mg-pad-h:           18px;  /* horizontal padding of the peek body          */
+  --mg-pad-top:          8px;  /* gap below the notch band before content      */
+  --mg-pad-bottom:      14px;  /* bottom padding of the peek                    */
+  --mg-gap-row:          6px;  /* vertical gap between point rows               */
+  --mg-gap-icon:         6px;  /* gap between a row's icon and its text         */
+  --mg-gap-dismiss:      8px;  /* gap between list column and the × control     */
+  --mg-row-height:      26px;  /* fixed row height used to size the panel       */
+
+  /* ----- Surface dimensions ---------------------------------------------- */
+  --mg-peek-width:     360px;  /* full panel body width                        */
+  --mg-notch-tab:      240px;  /* notch-width tab within the menu-bar band      */
+  --mg-band-height:     32px;  /* menu-bar / notch band the content clears      */
+
+  /* ----- Motion ----------------------------------------------------------
+     The app currently ships NO motion ("currently instant — no motion design
+     exists yet"). These are the proposed defaults for the design-system layer:
+     calm, quick, ease-out. Nothing bounces — this is an ambient surface. */
+  --mg-ease:            cubic-bezier(0.32, 0.72, 0, 1); /* calm ease-out        */
+  --mg-dur-fast:        140ms;  /* check-off tick, hover                        */
+  --mg-dur-base:        220ms;  /* peek show / dismiss, quick-add reveal        */
+}
+
+/* ============================================================================
+   Semantic helpers — apply the tokens directly. The peek surface is always
+   dark; these classes assume a black backdrop.
+   ========================================================================== */
+
+.mg-surface {
+  background: var(--mg-black);
+  color: var(--mg-text-primary);
+  font-family: var(--mg-font-system);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.mg-time {                       /* the muted time label at the top of a peek  */
+  font-size: var(--mg-size-caption2);
+  font-weight: var(--mg-weight-regular);
+  color: var(--mg-text-secondary);
+  letter-spacing: var(--mg-tracking-caption);
+}
+
+.mg-point {                      /* a live (unchecked) talking-point row text  */
+  font-size: var(--mg-size-caption);
+  font-weight: var(--mg-weight-medium);
+  color: var(--mg-text-primary);
+  line-height: var(--mg-leading-tight);
+}
+
+.mg-point--done {                /* a checked-off point: dimmed + struck       */
+  color: var(--mg-text-done);
+  text-decoration: line-through;
+  text-decoration-color: var(--mg-strike);
+}
+
+.mg-add {                        /* the "Add point" affordance                 */
+  font-size: var(--mg-size-caption2);
+  color: var(--mg-text-secondary);
+}
+
+.mg-field {                      /* the inline quick-add text field            */
+  font-size: var(--mg-size-caption);
+  color: var(--mg-text-primary);
+  background: var(--mg-field-fill);
+  border: 1px solid var(--mg-hairline);
+  border-radius: var(--mg-radius-field);
+}
+
+.mg-mono {
+  font-family: var(--mg-font-mono);
+  font-size: var(--mg-size-body);
+}
