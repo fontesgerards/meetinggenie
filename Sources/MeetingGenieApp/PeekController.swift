@@ -139,8 +139,12 @@ final class PeekController {
     }
 
     private func refreshPoints(id: UUID) {
-        if let entry = service.entry(id: id) {
-            model.points = entry.points
+        guard let entry = service.entry(id: id) else { return }
+        model.points = entry.points
+        // Keep the browse cache in sync so paging away and back doesn't show a
+        // stale pre-edit copy of this entry.
+        if let idx = sequence.firstIndex(where: { $0.entry.id == id }) {
+            sequence[idx] = ReviewItem(entry: entry, kind: sequence[idx].kind)
         }
     }
 
