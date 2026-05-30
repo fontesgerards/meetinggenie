@@ -30,6 +30,8 @@ final class PeekController {
         self.service = service
         model.onToggle = { [weak self] in self?.toggle(index: $0) }
         model.onRemove = { [weak self] in self?.removePoint(index: $0) }
+        model.onEdit = { [weak self] in self?.editPoint(index: $0, text: $1) }
+        model.onEditBegin = { [weak self] in self?.beginQuickAdd() } // reuse the key-focus handoff
         model.onDismiss = { [weak self] in self?.dismiss() }
         model.onQuickAddBegin = { [weak self] in self?.beginQuickAdd() }
         model.onQuickAddSubmit = { [weak self] in self?.quickAdd(text: $0) }
@@ -119,6 +121,15 @@ final class PeekController {
         try? service.removePoint(entryID: id, index: index) // R5/R8
         refreshPoints(id: id)
         updatePanelFrame()
+    }
+
+    private func editPoint(index: Int, text: String) {
+        guard model.kind != .past else { return } // can't edit history (R7)
+        guard let id = displayedEntryID(), model.points.indices.contains(index) else { return }
+        try? service.updatePoint(entryID: id, index: index, text: text) // validated/sanitized; empty no-ops
+        refreshPoints(id: id)
+        updatePanelFrame()
+        panel?.resignKey()
     }
 
     private func beginQuickAdd() {
