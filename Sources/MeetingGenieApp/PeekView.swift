@@ -173,6 +173,7 @@ struct PeekView: View {
                     .onSubmit(submit)
                     .padding(.vertical, 5)
                     .padding(.horizontal, 8)
+                    .accessibilityLabel("Add a point…") // empty title needs an explicit label for VoiceOver
             }
             .background(MGTheme.fieldFill)
             .clipShape(RoundedRectangle(cornerRadius: 6))
