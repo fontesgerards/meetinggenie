@@ -21,6 +21,8 @@ final class PeekModel: ObservableObject {
 
     var onToggle: (Int) -> Void = { _ in }
     var onRemove: (Int) -> Void = { _ in }
+    var onEdit: (Int, String) -> Void = { _, _ in }
+    var onEditBegin: () -> Void = {}
     var onDismiss: () -> Void = {}
     var onQuickAddBegin: () -> Void = {}
     var onQuickAddSubmit: (String) -> Void = { _ in }
@@ -76,13 +78,30 @@ private struct PointRowView: View {
     let kind: ReviewKind
     let onToggle: () -> Void
     let onRemove: () -> Void
+    let onEdit: (String) -> Void
+    let onEditBegin: () -> Void
     @State private var hovering = false
+    @State private var editing = false
+    @State private var draft = ""
+    @FocusState private var editFocused: Bool
 
     private var isPast: Bool { kind == .past }
     private var canCheck: Bool { kind == .active }
-    private var canRemove: Bool { kind == .active || kind == .upcoming }
+    private var editable: Bool { kind == .active || kind == .upcoming } // edit + remove
 
     var body: some View {
+        Group {
+            if editing {
+                editField
+            } else {
+                normalRow
+            }
+        }
+        .opacity(isPast ? 0.6 : 1.0) // read-only past rows are visibly dimmed
+        .onHover { hovering = $0 }
+    }
+
+    private var normalRow: some View {
         HStack(spacing: 6) {
             Button(action: { if canCheck { onToggle() } }) {
                 HStack(spacing: 6) {
@@ -103,18 +122,49 @@ private struct PointRowView: View {
             .buttonStyle(PeekButtonStyle())
             .disabled(!canCheck)
 
-            if canRemove && hovering {
+            if editable && hovering {
+                Button(action: beginEdit) {
+                    Image(systemName: "pencil").font(.system(size: 12)).foregroundStyle(MGTheme.iconIdle)
+                }
+                .buttonStyle(PeekButtonStyle())
+                .help("Edit this point")
+
                 Button(action: onRemove) {
-                    Image(systemName: "minus.circle")
-                        .font(.system(size: 12))
-                        .foregroundStyle(MGTheme.iconIdle)
+                    Image(systemName: "minus.circle").font(.system(size: 12)).foregroundStyle(MGTheme.iconIdle)
                 }
                 .buttonStyle(PeekButtonStyle())
                 .help("Remove this point")
             }
         }
-        .opacity(isPast ? 0.6 : 1.0) // read-only past rows are visibly dimmed
-        .onHover { hovering = $0 }
+    }
+
+    private var editField: some View {
+        TextField("", text: $draft)
+            .textFieldStyle(.plain)
+            .font(.system(size: MGTheme.sizeCaption, weight: .medium))
+            .foregroundStyle(Color.white)
+            .focused($editFocused)
+            .onSubmit { commitEdit() }
+            .onExitCommand { editing = false } // Esc cancels
+            .onChange(of: editFocused) { focused in if !focused { editing = false } } // blur cancels
+            .padding(.vertical, 4)
+            .padding(.horizontal, 8)
+            .background(MGTheme.fieldFill)
+            .clipShape(RoundedRectangle(cornerRadius: 6))
+            .overlay(RoundedRectangle(cornerRadius: 6).stroke(MGTheme.fieldBorderFocus, lineWidth: 1))
+            .onAppear { editFocused = true }
+    }
+
+    private func beginEdit() {
+        draft = point.text
+        onEditBegin()   // deliberate focus handoff so the field can type (R25)
+        editing = true
+    }
+
+    private func commitEdit() {
+        let text = draft
+        editing = false
+        onEdit(text)
     }
 
     private var iconColor: Color {
@@ -184,7 +234,9 @@ struct PeekView: View {
                             point: point,
                             kind: model.kind,
                             onToggle: { model.onToggle(index) },
-                            onRemove: { model.onRemove(index) }
+                            onRemove: { model.onRemove(index) },
+                            onEdit: { model.onEdit(index, $0) },
+                            onEditBegin: { model.onEditBegin() }
                         )
                     }
                     if model.kind != .past { quickAdd }

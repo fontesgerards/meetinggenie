@@ -82,4 +82,24 @@ import Foundation
         try svc.removePoint(entryID: e.id, index: 0)
         #expect(svc.entry(id: e.id)?.points.isEmpty == true)
     }
+
+    @Test func updatePointReplacesTextPreservingIdAndChecked() throws {
+        let svc = service()
+        let e = try svc.createEntry(at: Date(timeIntervalSince1970: 1_700_000_000), points: ["old", "keep"])
+        let originalID = e.points[0].id
+        try svc.setChecked(entryID: e.id, index: 0, checked: true)
+        try svc.updatePoint(entryID: e.id, index: 0, text: "new text")
+        let p = svc.entry(id: e.id)?.points.first
+        #expect(p?.text == "new text")
+        #expect(p?.checked == true)     // checked state preserved
+        #expect(p?.id == originalID)    // identity preserved (no row churn)
+        #expect(svc.entry(id: e.id)?.points.count == 2) // other points untouched
+    }
+
+    @Test func updatePointRejectsEmptyAndOutOfRange() throws {
+        let svc = service()
+        let e = try svc.createEntry(at: Date(timeIntervalSince1970: 1_700_000_000), points: ["x"])
+        #expect(throws: (any Error).self) { try svc.updatePoint(entryID: e.id, index: 0, text: "   ") }
+        #expect(throws: ServiceError.noPoint(index: 3)) { try svc.updatePoint(entryID: e.id, index: 3, text: "y") }
+    }
 }

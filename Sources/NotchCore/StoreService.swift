@@ -129,6 +129,22 @@ public final class StoreService {
         try store.save(data)
     }
 
+    /// Replace the text of the 0-based `index` point in the entry with
+    /// `entryID`, validating/sanitizing the new text and preserving the point's
+    /// id and checked state (inline edit; R5/R8).
+    public func updatePoint(entryID: UUID, index: Int, text: String) throws {
+        let clean = try Validation.validatePoint(text)
+        var data = try store.load()
+        guard let idx = data.entries.firstIndex(where: { $0.id == entryID }) else {
+            throw ServiceError.noEntryID
+        }
+        guard data.entries[idx].points.indices.contains(index) else {
+            throw ServiceError.noPoint(index: index)
+        }
+        data.entries[idx].points[index].text = clean
+        try store.save(data)
+    }
+
     public func setChecked(entryID: UUID, index: Int, checked: Bool) throws {
         var data = try store.load()
         guard let idx = data.entries.firstIndex(where: { $0.id == entryID }),
