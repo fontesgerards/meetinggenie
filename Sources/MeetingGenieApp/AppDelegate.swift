@@ -20,7 +20,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         scheduler = Scheduler(
             store: store,
             onTrigger: { [weak self] entry in
-                self?.controller.show(entry)
+                self?.controller.handleTrigger(entry) // non-interrupting if browsing (R11)
                 self?.rebuildMenu()
             },
             onMidnight: { [weak self] in
@@ -70,6 +70,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         reopen.isEnabled = controller.hasReopenableEntryToday() // R22 / P0 resolution
         menu.addItem(reopen)
 
+        let review = NSMenuItem(
+            title: "Review meetings…",
+            action: #selector(reviewMeetings),
+            keyEquivalent: ""
+        )
+        review.target = self // R9-menu: opens browse at the nearest entry
+        menu.addItem(review)
+
         menu.addItem(.separator())
 
         let quit = NSMenuItem(
@@ -80,6 +88,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(quit)
 
         statusItem?.menu = menu
+    }
+
+    @objc private func reviewMeetings() {
+        controller.enterBrowse()
     }
 
     @objc private func reopen() {
