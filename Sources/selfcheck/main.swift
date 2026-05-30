@@ -125,6 +125,36 @@ do {
     print("  FAIL StoreService entry-by-id threw: \(error)"); failures += 1
 }
 
+// MARK: ReviewSequence + removePoint(entryID:) (R1, R2, R4, R5)
+print("ReviewSequence:")
+do {
+    let base = Date(timeIntervalSince1970: 1_700_000_000)
+    func e(_ off: TimeInterval, _ t: String, checked: Bool = false) -> Entry {
+        Entry(startTime: base.addingTimeInterval(off), points: [Point(text: t, checked: checked)])
+    }
+    let data = StoreData(
+        entries: [e(3600, "in 1h"), e(-60, "started")],
+        archive: [e(-3600, "an hour ago", checked: true)]
+    )
+    let seq = ReviewSequence.build(from: data, now: base)
+    check("orders past→active→upcoming", seq.map(\.kind) == [.past, .active, .upcoming])
+    check("past entry keeps checked state", seq.first?.entry.points.first?.checked == true)
+    let windowed = ReviewSequence.build(
+        from: StoreData(archive: [e(-(8 * 24 * 3600), "too old"), e(-(6 * 24 * 3600), "recent")]),
+        now: base
+    )
+    check("excludes archive older than 7-day window", windowed.map { $0.entry.points.first?.text } == ["recent"])
+    check("empty store → empty sequence", ReviewSequence.build(from: StoreData(), now: base).isEmpty)
+
+    let svc = StoreService(store: Store(url: tempURL()))
+    let entry = try svc.createEntry(at: base, points: ["a", "b", "c"])
+    try svc.removePoint(entryID: entry.id, index: 1)
+    check("removePoint(entryID:) removes the targeted point", svc.entry(id: entry.id)?.points.map(\.text) == ["a", "c"])
+    check("removePoint out-of-range throws", (try? svc.removePoint(entryID: entry.id, index: 9)) == nil)
+} catch {
+    print("  FAIL ReviewSequence threw: \(error)"); failures += 1
+}
+
 // MARK: StoreWatcher (R7)
 print("StoreWatcher:")
 do {
