@@ -4,7 +4,11 @@ import Foundation
 /// `Date` on a reference day. The store holds only times (origin R2), and the
 /// CLI lets an agent or user express that time loosely.
 public enum TimeParser {
-    private static let formats = ["h:mma", "h:mm a", "ha", "h a", "H:mm", "HH:mm"]
+    private static let formats = [
+        "h:mma", "hh:mma", "h:mm a", "hh:mm a", // 12-hour, with/without leading zero
+        "ha", "hha", "h a", "hh a",
+        "H:mm", "HH:mm",                         // 24-hour
+    ]
 
     public static func parse(
         _ string: String,

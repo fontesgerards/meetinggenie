@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import QuartzCore
 import NotchCore
 
 /// The peek lifecycle state machine (origin R8, R10, R11, R12, R14, R20, R22,
@@ -36,20 +37,67 @@ final class PeekController {
     /// An entry with no points is a no-op — the peek stays collapsed (R20).
     func show(_ entry: Entry) {
         guard !entry.points.isEmpty else { return }
+        let wasVisible = panel?.isVisible ?? false
         archiveCurrent()
         currentEntryID = entry.id
         model.title = TimeFormatting.display(entry.startTime)
         model.points = entry.points
         model.quickAddVisible = false
-        presentPanel()
+        configurePanel()
+        guard let panel else { return }
+        // Latest-wins replace (already on screen) swaps content instantly; a
+        // fresh appearance slides + fades down from behind the notch (~220ms).
+        if wasVisible || Self.reduceMotion {
+            panel.alphaValue = 1
+            panel.orderFrontRegardless()
+        } else {
+            let final = panel.frame
+            var start = final
+            start.origin.y += 8 // begin tucked up behind the notch
+            panel.alphaValue = 0
+            panel.setFrame(start, display: false)
+            panel.orderFrontRegardless()
+            NSAnimationContext.runAnimationGroup { ctx in
+                ctx.duration = 0.22
+                ctx.timingFunction = Self.mgTiming
+                panel.animator().setFrame(final, display: true)
+                panel.animator().alphaValue = 1
+            }
+        }
     }
 
     /// User dismissed via the close affordance: archive and hide (R14, R23).
     func dismiss() {
         archiveCurrent()
         currentEntryID = nil
-        panel?.orderOut(nil)
+        guard let panel, panel.isVisible else { panel?.orderOut(nil); return }
+        if Self.reduceMotion {
+            panel.orderOut(nil)
+            return
+        }
+        let rest = panel.frame
+        var up = rest
+        up.origin.y += 8
+        NSAnimationContext.runAnimationGroup({ ctx in
+            ctx.duration = 0.22
+            ctx.timingFunction = Self.mgTiming
+            panel.animator().setFrame(up, display: true)
+            panel.animator().alphaValue = 0
+        }, completionHandler: { [weak panel, weak self] in
+            // If a new peek started while this dismiss was animating, leave it
+            // alone — don't hide or clobber the freshly-shown panel.
+            if self?.currentEntryID != nil { return }
+            panel?.orderOut(nil)
+            panel?.alphaValue = 1
+            panel?.setFrame(rest, display: false) // reset for the next show
+        })
     }
+
+    private static var reduceMotion: Bool {
+        NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+    }
+
+    private static let mgTiming = CAMediaTimingFunction(controlPoints: 0.32, 0.72, 0, 1)
 
     /// Midnight safety net (R10): archive any showing peek and hide.
     func dismissForMidnight() {
@@ -95,6 +143,7 @@ final class PeekController {
         // store count (R13, R16). A rejected add is a silent no-op for v1.
         try? service.addPoint(entryID: id, text: text)
         refreshModel(id: id)
+        updatePanelFrame() // grow the panel so the new point isn't clipped
         panel?.resignKey()
     }
 
@@ -118,7 +167,9 @@ final class PeekController {
 
     // MARK: - Panel plumbing
 
-    private func presentPanel() {
+    /// Create (if needed) and size the panel, without ordering it on screen —
+    /// `show()` owns the ordering + entrance animation.
+    private func configurePanel() {
         let screen = NotchGeometry.targetScreen()
         model.topInset = screen.map(NotchGeometry.notchHeight) ?? 0
         model.notchWidth = screen.map(NotchGeometry.notchWidth) ?? 0
@@ -131,14 +182,17 @@ final class PeekController {
             if #available(macOS 13.3, *) { host.safeAreaRegions = [] }
             panel = PeekPanel(content: host)
         }
-        if let panel, let screen {
-            // Flush against the top of the screen; height = notch clearance +
-            // a row per point + chrome (title, add row, padding).
-            let rows = max(model.points.count, 1)
-            let height = model.topInset + CGFloat(rows) * 26 + 76
-            let size = CGSize(width: 360, height: height)
-            panel.setFrame(NotchGeometry.peekFrame(on: screen, size: size), display: true)
-        }
-        panel?.orderFrontRegardless() // appears without activating the app (R9)
+        updatePanelFrame()
+    }
+
+    /// Size the panel flush to the top of the screen, tall enough for the
+    /// current point count. Called on present and after quick-add so a new
+    /// point is never clipped.
+    private func updatePanelFrame() {
+        guard let panel, let screen = NotchGeometry.targetScreen() else { return }
+        let rows = max(model.points.count, 1)
+        let height = model.topInset + CGFloat(rows) * 26 + 76 // notch clearance + rows + chrome
+        let size = CGSize(width: PeekView.width, height: height)
+        panel.setFrame(NotchGeometry.peekFrame(on: screen, size: size), display: true)
     }
 }
