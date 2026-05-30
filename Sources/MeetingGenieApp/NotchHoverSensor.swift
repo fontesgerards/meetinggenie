@@ -6,16 +6,11 @@ import AppKit
 /// monitors need no Accessibility permission, unlike keyboard ones) rather than
 /// a sensor window — so it never swallows clicks or steals focus, and a plain
 /// click on the idle notch stays a no-op (R10). When the cursor dwells in the
-/// notch region it fires `onEnter`; when it leaves the notch ∪ peek region it
-/// fires `onExit`. The controller decides what to do (open only when idle;
-/// close only if hover-opened and not yet paged).
+/// notch region it fires `onEnter`; the opened peek then stays until the user
+/// dismisses it with × (no mouse-away auto-close).
 @available(macOS 13, *)
 final class NotchHoverSensor {
     var onEnter: () -> Void = {}
-    var onExit: () -> Void = {}
-    /// The current peek frame (when visible) so moving down from the notch into
-    /// the peek doesn't read as leaving.
-    var peekFrame: () -> NSRect? = { nil }
 
     private var globalMonitor: Any?
     private var localMonitor: Any?
@@ -57,9 +52,7 @@ final class NotchHoverSensor {
 
     private func evaluate() {
         let location = NSEvent.mouseLocation // screen coords, bottom-left origin (matches frames)
-        let regions = [notchRect(), peekFrame()].compactMap { $0 }
-        let nowInside = regions.contains { $0.contains(location) }
-
+        let nowInside = notchRect()?.contains(location) ?? false
         if nowInside && !inside {
             inside = true
             let work = DispatchWorkItem { [weak self] in
@@ -68,9 +61,8 @@ final class NotchHoverSensor {
             dwell = work
             DispatchQueue.main.asyncAfter(deadline: .now() + Self.dwellSeconds, execute: work)
         } else if !nowInside && inside {
-            inside = false
+            inside = false // re-arm so a later re-entry can open again
             dwell?.cancel()
-            onExit()
         }
     }
 }
