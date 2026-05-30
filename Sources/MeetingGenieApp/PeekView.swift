@@ -179,7 +179,7 @@ struct PeekView: View {
                         .font(.system(size: MGTheme.sizeCaption))
                         .foregroundStyle(MGTheme.secondary)
                 } else {
-                    ForEach(Array(model.points.enumerated()), id: \.offset) { index, point in
+                    ForEach(Array(model.points.enumerated()), id: \.element.id) { index, point in
                         PointRowView(
                             point: point,
                             kind: model.kind,

@@ -5,13 +5,25 @@ import Foundation
 /// Per origin R1/R2 the only persisted fields are the note text and its
 /// checked state — there is deliberately no calendar, attendee, or
 /// platform-derived data anywhere in the model (R2, R4, AE5).
-public struct Point: Codable, Equatable {
+public struct Point: Codable, Equatable, Identifiable {
+    public var id: UUID
     public var text: String
     public var checked: Bool
 
-    public init(text: String, checked: Bool = false) {
+    public init(id: UUID = UUID(), text: String, checked: Bool = false) {
+        self.id = id
         self.text = text
         self.checked = checked
+    }
+
+    // Stable identity gives SwiftUI a reliable per-row key so removing a point
+    // doesn't shift per-row state onto a neighbor. Decodes a fresh id when an
+    // older store predates the field.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try c.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+        self.text = try c.decode(String.self, forKey: .text)
+        self.checked = try c.decodeIfPresent(Bool.self, forKey: .checked) ?? false
     }
 }
 
