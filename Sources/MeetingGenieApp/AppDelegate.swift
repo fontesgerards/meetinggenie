@@ -12,6 +12,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var scheduler: Scheduler?
     private var watcher: StoreWatcher?
     private var statusItem: NSStatusItem?
+    private var hoverSensor: NotchHoverSensor?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         setupStatusItem()
@@ -36,6 +37,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         watcher?.start()
         scheduler?.reload()
+
+        // Idle-notch hover invocation (U4b). The menu item is the primary path;
+        // hover is an accelerator.
+        let sensor = NotchHoverSensor()
+        sensor.onEnter = { [weak self] in self?.controller.hoverOpen() }
+        sensor.onExit = { [weak self] in self?.controller.hoverAway() }
+        sensor.peekFrame = { [weak self] in self?.controller.visiblePanelFrame() }
+        sensor.start()
+        hoverSensor = sensor
 
         let wsCenter = NSWorkspace.shared.notificationCenter
         wsCenter.addObserver(self, selector: #selector(reload), name: NSWorkspace.didWakeNotification, object: nil)
