@@ -23,6 +23,8 @@ final class PeekController {
     private var sequence: [ReviewItem] = []
     private var currentIndex: Int?      // position in `sequence` of the shown entry
     private var pendingLive: Entry?     // a meeting that fired while browsing (R11)
+    private var hoverOpened = false     // browse was opened by notch hover (U4b)
+    private var pagedSinceHover = false // user has paged since a hover-open
 
     var onArchiveChanged: () -> Void = {}
 
@@ -48,6 +50,8 @@ final class PeekController {
         sequence = []
         currentIndex = nil
         pendingLive = nil
+        hoverOpened = false
+        pagedSinceHover = false
         currentEntryID = entry.id
         model.isBrowsing = false
         model.nowBadge = false
@@ -192,6 +196,7 @@ final class PeekController {
         if model.nowBadge { surfacePendingLive(); return } // › jumps to the live meeting (R12)
         guard let i = currentIndex, i + 1 < sequence.count else { return }
         model.isBrowsing = true
+        pagedSinceHover = true // once the user pages, hover-away no longer auto-closes (U4b)
         currentIndex = i + 1
         renderCurrent()
     }
@@ -199,8 +204,35 @@ final class PeekController {
     private func pagePrev() {
         guard let i = currentIndex, i - 1 >= 0 else { return }
         model.isBrowsing = true
+        pagedSinceHover = true
         currentIndex = i - 1
         renderCurrent()
+    }
+
+    // MARK: - Hover invocation (U4b, R9-hover/R10)
+
+    /// Open browse by notch hover — only when idle (no live peek or browse up).
+    /// A plain click on the idle notch does nothing (R10): there is no hover
+    /// sensor window to receive the click.
+    func hoverOpen() {
+        guard !(panel?.isVisible ?? false) else { return }
+        enterBrowse()
+        hoverOpened = true
+        pagedSinceHover = false
+    }
+
+    /// The cursor left the notch ∪ peek region. Close only if browse was
+    /// hover-opened and the user hasn't paged yet (per the plan's exit model).
+    func hoverAway() {
+        guard model.isBrowsing, hoverOpened, !pagedSinceHover else { return }
+        exitBrowse(surfacingPendingLive: false)
+    }
+
+    /// The peek's frame while visible, so the hover sensor treats the peek body
+    /// as part of the hover region.
+    func visiblePanelFrame() -> NSRect? {
+        guard let panel, panel.isVisible else { return nil }
+        return panel.frame
     }
 
     /// Render the item at `currentIndex`. Does NOT touch `currentEntryID` (that
@@ -262,6 +294,8 @@ final class PeekController {
         currentIndex = nil
         sequence = []
         pendingLive = nil
+        hoverOpened = false
+        pagedSinceHover = false
     }
 
     // MARK: - Panel plumbing
