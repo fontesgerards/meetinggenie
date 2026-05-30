@@ -119,8 +119,10 @@ public final class StoreService {
     /// the last point leaves an empty entry (which the peek treats as a no-op).
     public func removePoint(entryID: UUID, index: Int) throws {
         var data = try store.load()
-        guard let idx = data.entries.firstIndex(where: { $0.id == entryID }),
-              data.entries[idx].points.indices.contains(index) else {
+        guard let idx = data.entries.firstIndex(where: { $0.id == entryID }) else {
+            throw ServiceError.noEntryID
+        }
+        guard data.entries[idx].points.indices.contains(index) else {
             throw ServiceError.noPoint(index: index)
         }
         data.entries[idx].points.remove(at: index)

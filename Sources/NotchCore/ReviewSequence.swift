@@ -41,6 +41,15 @@ public enum ReviewSequence {
         let active = data.entries.map { entry in
             ReviewItem(entry: entry, kind: entry.startTime <= now ? .active : .upcoming)
         }
-        return (past + active).sorted { $0.entry.startTime < $1.entry.startTime }
+        // Sort by start time, with a deterministic tiebreaker (past < active <
+        // upcoming, then id) so equal-time entries keep a stable order.
+        func rank(_ kind: ReviewKind) -> Int {
+            switch kind { case .past: return 0; case .active: return 1; case .upcoming: return 2 }
+        }
+        return (past + active).sorted { a, b in
+            if a.entry.startTime != b.entry.startTime { return a.entry.startTime < b.entry.startTime }
+            if rank(a.kind) != rank(b.kind) { return rank(a.kind) < rank(b.kind) }
+            return a.entry.id.uuidString < b.entry.id.uuidString
+        }
     }
 }
