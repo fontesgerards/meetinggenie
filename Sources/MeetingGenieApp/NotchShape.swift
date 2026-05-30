@@ -74,7 +74,10 @@ struct NotchTShape: Shape {
         let r = cx + halfNotch // notch tab right edge
         let bh = min(bandHeight, rect.height)
         var sr = max(0, min(shoulderRadius, bh, halfNotch))
-        var br = max(0, min(bottomRadius, rect.height - bh))
+        // br rounds both the body-top and body-bottom corners, so it occupies
+        // vertical space twice; cap at half the body height to avoid a
+        // self-intersecting path on a short panel.
+        var br = max(0, min(bottomRadius, (rect.height - bh) / 2))
         // The shoulder flare and the body corner share the horizontal space on
         // each side of the notch; scale them down proportionally if they'd
         // overlap (wide notch / small screen), which would otherwise self-

@@ -83,7 +83,10 @@ final class PeekController {
             ctx.timingFunction = Self.mgTiming
             panel.animator().setFrame(up, display: true)
             panel.animator().alphaValue = 0
-        }, completionHandler: { [weak panel] in
+        }, completionHandler: { [weak panel, weak self] in
+            // If a new peek started while this dismiss was animating, leave it
+            // alone — don't hide or clobber the freshly-shown panel.
+            if self?.currentEntryID != nil { return }
             panel?.orderOut(nil)
             panel?.alphaValue = 1
             panel?.setFrame(rest, display: false) // reset for the next show
