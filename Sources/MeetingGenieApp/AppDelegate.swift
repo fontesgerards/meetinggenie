@@ -42,8 +42,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // hover is an accelerator.
         let sensor = NotchHoverSensor()
         sensor.onEnter = { [weak self] in self?.controller.hoverOpen() }
-        sensor.onExit = { [weak self] in self?.controller.hoverAway() }
-        sensor.peekFrame = { [weak self] in self?.controller.visiblePanelFrame() }
         sensor.start()
         hoverSensor = sensor
 
