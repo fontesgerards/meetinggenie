@@ -56,12 +56,28 @@ focus.
 A single note icon (`note.text`) with a menu: "Re-open last meeting's points"
 and "Quit".
 
-## Open for design (deliberately bare today)
+## Design system (shipped)
 
-Typography hierarchy, spacing rhythm, the check-off / quick-add
-micro-interactions, the show/dismiss transition (currently instant — **no motion
-design exists yet**), iconography, subtle material/elevation, empty-state and
-long-list treatment, and the shoulder/corner-radius proportions.
+The look & feel is now formalized in `docs/design-system/` (tokens + the system
+README, from the Claude Design handoff) and implemented in `PeekView.swift` /
+`PeekController.swift`:
+
+- **Type & color:** SF Pro at caption/caption2; the white-on-black opacity
+  ladder (1.0 / 0.55 / 0.50 / 0.45 / 0.40); `#30D158` green for the checked state
+  only.
+- **Quick-add field card:** `0.08` white fill, `0.10` hairline border (→ `0.25`
+  on focus), `6pt` radius, `0.35` placeholder.
+- **Motion** (calm ease-out `cubic-bezier(0.32,0.72,0,1)`, respects Reduce
+  Motion): show/dismiss slide+fade (~220ms); check-off tick with a ~1.06
+  checkmark scale-punch + dim/strike (~140ms); quick-add reveal crossfade.
+- **Hover/press:** hover raises icons one opacity rung; press gives a quiet
+  shrink (the check-off is the primary press target).
+
+## Still open / deferred
+
+- A **non-notch fallback** surface (floating panel) — deferred product scope.
+- **Logo / wordmark** — none exists; if marketing needs one, design it inside
+  these constraints (monochrome, the notch silhouette as a motif).
 
 ## Constraints to respect
 
