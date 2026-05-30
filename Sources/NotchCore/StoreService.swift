@@ -81,6 +81,16 @@ public final class StoreService {
         try store.load().entries.sorted { $0.startTime < $1.startTime }
     }
 
+    /// The time-ordered nearby sequence for browse navigation (R1, R2, R4):
+    /// recent archived entries, the active entry, and upcoming queued entries.
+    public func reviewSequence(
+        now: Date = Date(),
+        window: TimeInterval = ReviewSequence.defaultWindow
+    ) -> [ReviewItem] {
+        guard let data = try? store.load() else { return [] }
+        return ReviewSequence.build(from: data, now: now, window: window)
+    }
+
     // MARK: - Entry-by-id operations (used by the app's peek interactions)
     //
     // These read the store fresh on each call and mutate one targeted field, so
@@ -102,6 +112,20 @@ public final class StoreService {
             throw ValidationError.tooManyPoints(max: Limits.maxPointsPerEntry)
         }
         data.entries[idx].points.append(Point(text: clean))
+        try store.save(data)
+    }
+
+    /// Remove the 0-based `index` point from the entry with `entryID`. Removing
+    /// the last point leaves an empty entry (which the peek treats as a no-op).
+    public func removePoint(entryID: UUID, index: Int) throws {
+        var data = try store.load()
+        guard let idx = data.entries.firstIndex(where: { $0.id == entryID }) else {
+            throw ServiceError.noEntryID
+        }
+        guard data.entries[idx].points.indices.contains(index) else {
+            throw ServiceError.noPoint(index: index)
+        }
+        data.entries[idx].points.remove(at: index)
         try store.save(data)
     }
 

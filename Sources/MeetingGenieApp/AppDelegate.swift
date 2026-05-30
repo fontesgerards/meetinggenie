@@ -12,6 +12,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var scheduler: Scheduler?
     private var watcher: StoreWatcher?
     private var statusItem: NSStatusItem?
+    private var hoverSensor: NotchHoverSensor?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         setupStatusItem()
@@ -20,7 +21,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         scheduler = Scheduler(
             store: store,
             onTrigger: { [weak self] entry in
-                self?.controller.show(entry)
+                self?.controller.handleTrigger(entry) // non-interrupting if browsing (R11)
                 self?.rebuildMenu()
             },
             onMidnight: { [weak self] in
@@ -36,6 +37,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         watcher?.start()
         scheduler?.reload()
+
+        // Idle-notch hover invocation (U4b). The menu item is the primary path;
+        // hover is an accelerator.
+        let sensor = NotchHoverSensor()
+        sensor.onEnter = { [weak self] in self?.controller.hoverOpen() }
+        sensor.onExit = { [weak self] in self?.controller.hoverAway() }
+        sensor.peekFrame = { [weak self] in self?.controller.visiblePanelFrame() }
+        sensor.start()
+        hoverSensor = sensor
 
         let wsCenter = NSWorkspace.shared.notificationCenter
         wsCenter.addObserver(self, selector: #selector(reload), name: NSWorkspace.didWakeNotification, object: nil)
@@ -70,6 +80,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         reopen.isEnabled = controller.hasReopenableEntryToday() // R22 / P0 resolution
         menu.addItem(reopen)
 
+        let review = NSMenuItem(
+            title: "Review meetings…",
+            action: #selector(reviewMeetings),
+            keyEquivalent: ""
+        )
+        review.target = self // R9-menu: opens browse at the nearest entry
+        menu.addItem(review)
+
         menu.addItem(.separator())
 
         let quit = NSMenuItem(
@@ -80,6 +98,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(quit)
 
         statusItem?.menu = menu
+    }
+
+    @objc private func reviewMeetings() {
+        controller.enterBrowse()
     }
 
     @objc private func reopen() {
