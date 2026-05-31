@@ -53,6 +53,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func reload() {
         scheduler?.reload()
+        controller.handleScreenChange() // re-home a visible peek on display reconfig (R4)
         rebuildMenu()
     }
 
@@ -86,6 +87,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         review.target = self // R9-menu: opens browse at the nearest entry
         menu.addItem(review)
 
+        // Hide-while-sharing toggle (U5; R6, R10). Grouped with "Review meetings…"
+        // as the peek controls; the checkmark reflects current suppression state.
+        let hide = NSMenuItem(
+            title: "Hide while sharing",
+            action: #selector(toggleHideWhileSharing),
+            keyEquivalent: ""
+        )
+        hide.target = self
+        hide.state = controller.suppressed ? .on : .off
+        menu.addItem(hide)
+
         menu.addItem(.separator())
 
         let quit = NSMenuItem(
@@ -100,6 +112,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func reviewMeetings() {
         controller.enterBrowse()
+    }
+
+    @objc private func toggleHideWhileSharing() {
+        controller.setSuppressed(!controller.suppressed)
+        rebuildMenu() // refresh the checkmark
     }
 
     @objc private func reopen() {
