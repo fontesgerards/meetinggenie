@@ -141,6 +141,7 @@ public final class StoreService {
         guard data.entries[idx].points.indices.contains(index) else {
             throw ServiceError.noPoint(index: index)
         }
+        guard data.entries[idx].points[index].text != clean else { return } // no-op: skip the write + file-watcher churn
         data.entries[idx].points[index].text = clean
         try store.save(data)
     }
