@@ -1,7 +1,7 @@
 ---
 date: 2026-05-30
 type: feat
-status: active
+status: completed
 origin: docs/brainstorms/2026-05-30-peek-presence-layer-requirements.md
 ---
 
