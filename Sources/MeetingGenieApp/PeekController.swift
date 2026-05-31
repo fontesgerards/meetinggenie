@@ -175,6 +175,7 @@ final class PeekController {
     /// to resurface on un-suppress and never show it (R7); while browsing, stash
     /// and badge it — never interrupt (R11); otherwise show it live.
     func handleTrigger(_ entry: Entry) {
+        guard !entry.points.isEmpty else { return } // empty entries are a no-op (R20) — never stash/show one
         if suppressed {
             heldLive = entry // surfaced on un-suppress if still current (R8)
             return
