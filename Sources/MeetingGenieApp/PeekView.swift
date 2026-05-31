@@ -224,14 +224,15 @@ struct PeekView: View {
     }
 
     var body: some View {
-        HStack(alignment: .top, spacing: 8) {
-            // ‹ prev — flush-left, only when there's an earlier entry.
-            if showsNav {
-                navArrow(system: "chevron.left", enabled: model.canPrev, action: model.onPrev)
-                    .accessibilityLabel("Previous meeting")
-            }
+        VStack(alignment: .leading, spacing: 6) {
+            // Top bar: ‹ prev, time + recency, › next (+now badge), × dismiss —
+            // a single .center-aligned row so every control shares one axis.
+            HStack(alignment: .center, spacing: 8) {
+                if showsNav {
+                    navArrow(system: "chevron.left", enabled: model.canPrev, action: model.onPrev)
+                        .accessibilityLabel("Previous meeting")
+                }
 
-            VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 6) {
                     Text(model.title)
                         .font(.system(size: MGTheme.sizeCaption2))
@@ -240,46 +241,47 @@ struct PeekView: View {
                     if showsNav { recencyLabel }
                 }
 
-                if let message = model.emptyMessage {
-                    Text(message)
-                        .font(.system(size: MGTheme.sizeCaption))
-                        .foregroundStyle(MGTheme.secondary)
-                } else {
-                    ForEach(Array(model.points.enumerated()), id: \.element.id) { index, point in
-                        PointRowView(
-                            point: point,
-                            kind: model.kind,
-                            onToggle: { model.onToggle(index) },
-                            onRemove: { model.onRemove(index) },
-                            onEdit: { model.onEdit(index, $0) },
-                            onEditBegin: { model.onEditBegin() }
-                        )
-                    }
-                    if model.kind != .past { quickAdd }
-                }
-            }
+                Spacer(minLength: 4)
 
-            Spacer(minLength: 4)
-
-            // › next (with the "now" badge) then × dismiss, top-right (× outermost).
-            if showsNav {
-                ZStack(alignment: .topTrailing) {
-                    navArrow(system: "chevron.right", enabled: model.canNext || model.nowBadge, action: model.onNext)
-                        .accessibilityLabel(model.nowBadge ? "A meeting is live — jump to it" : "Next meeting")
-                    if model.nowBadge {
-                        Circle().fill(MGTheme.green).frame(width: 6, height: 6).offset(x: 2, y: -2)
+                // › next (with the "now" badge) then × dismiss (× outermost).
+                if showsNav {
+                    ZStack(alignment: .topTrailing) {
+                        navArrow(system: "chevron.right", enabled: model.canNext || model.nowBadge, action: model.onNext)
+                            .accessibilityLabel(model.nowBadge ? "A meeting is live — jump to it" : "Next meeting")
+                        if model.nowBadge {
+                            Circle().fill(MGTheme.green).frame(width: 6, height: 6).offset(x: 2, y: -2)
+                        }
                     }
                 }
+
+                Button(action: { model.onDismiss() }) {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 15))
+                        .foregroundStyle(dismissHovering ? MGTheme.dismissHover : MGTheme.iconIdle)
+                }
+                .buttonStyle(PeekButtonStyle())
+                .onHover { dismissHovering = $0 }
+                .help(model.isBrowsing ? "Close" : "Done — archive these points")
             }
 
-            Button(action: { model.onDismiss() }) {
-                Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 15))
-                    .foregroundStyle(dismissHovering ? MGTheme.dismissHover : MGTheme.iconIdle)
+            // Body: points list + quick-add, or the empty-browse message.
+            if let message = model.emptyMessage {
+                Text(message)
+                    .font(.system(size: MGTheme.sizeCaption))
+                    .foregroundStyle(MGTheme.secondary)
+            } else {
+                ForEach(Array(model.points.enumerated()), id: \.element.id) { index, point in
+                    PointRowView(
+                        point: point,
+                        kind: model.kind,
+                        onToggle: { model.onToggle(index) },
+                        onRemove: { model.onRemove(index) },
+                        onEdit: { model.onEdit(index, $0) },
+                        onEditBegin: { model.onEditBegin() }
+                    )
+                }
+                if model.kind != .past { quickAdd }
             }
-            .buttonStyle(PeekButtonStyle())
-            .onHover { dismissHovering = $0 }
-            .help(model.isBrowsing ? "Close" : "Done — archive these points")
         }
         .padding(.horizontal, 18)
         .padding(.bottom, 14)
