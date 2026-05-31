@@ -24,6 +24,11 @@ final class PeekController {
     private var currentIndex: Int?      // position in `sequence` of the shown entry
     private var pendingLive: Entry?     // a meeting that fired while browsing (R11)
 
+    // Hide-while-sharing suppression (U4; R6–R9). In-memory only, so it resets
+    // to off on relaunch automatically.
+    private(set) var suppressed = false
+    private var heldLive: Entry?        // a meeting that fired while suppressed (latest-wins)
+
     var onArchiveChanged: () -> Void = {}
 
     init(service: StoreService) {
@@ -166,9 +171,14 @@ final class PeekController {
 
     // MARK: - Browse navigation (review-navigation U2/U5)
 
-    /// Route a scheduler trigger: while browsing, stash it and badge it — never
-    /// interrupt (R11); otherwise show it live.
+    /// Route a scheduler trigger: while sharing-suppressed, stash it (latest-wins)
+    /// to resurface on un-suppress and never show it (R7); while browsing, stash
+    /// and badge it — never interrupt (R11); otherwise show it live.
     func handleTrigger(_ entry: Entry) {
+        if suppressed {
+            heldLive = entry // surfaced on un-suppress if still current (R8)
+            return
+        }
         if model.isBrowsing {
             pendingLive = entry
             model.nowBadge = true
@@ -179,6 +189,7 @@ final class PeekController {
 
     /// Open browse at the nearest entry (menu-bar "Review meetings…", U4a).
     func enterBrowse() {
+        guard !suppressed else { return } // browse is blocked while sharing (R7)
         sequence = service.reviewSequence()
         model.isBrowsing = true
         model.quickAddVisible = false
@@ -218,6 +229,41 @@ final class PeekController {
         renderCurrent()
     }
 
+    // MARK: - Hide while sharing (U4; R6–R9)
+
+    /// Toggle peek suppression for screen-sharing. On: hide the panel without
+    /// archiving or losing state, so it can be restored exactly. Off: resurface
+    /// the held live meeting if still current, else re-present whatever was
+    /// hidden (R6, R8).
+    func setSuppressed(_ on: Bool) {
+        guard on != suppressed else { return }
+        suppressed = on
+        if on {
+            panel?.orderOut(nil) // instant hide for a deliberate privacy action; state preserved
+        } else if let fresh = currentHeldLive() {
+            heldLive = nil
+            show(fresh) // surface the meeting that fired during the share
+        } else {
+            heldLive = nil
+            if panel != nil, currentEntryID != nil || model.isBrowsing {
+                configurePanel()  // the display set may have changed while hidden — re-pick placement/frame
+                presentPanel()    // then re-present the peek we hid
+            }
+        }
+    }
+
+    /// The held meeting, refreshed from the store, if it is still a live
+    /// candidate at un-suppress time: still in the active set and still today.
+    /// Latest-wins in `handleTrigger` guarantees a survivor is the most recent
+    /// meeting (R8). Returns the fresh entry so post-stash edits are reflected.
+    private func currentHeldLive() -> Entry? {
+        guard let held = heldLive,
+              let fresh = service.entry(id: held.id),
+              Calendar.current.isDate(fresh.startTime, inSameDayAs: Date())
+        else { return nil }
+        return fresh
+    }
+
     // MARK: - Hover invocation (U4b, R9-hover/R10)
 
     /// Open browse by notch hover — only when idle (no live peek or browse up).
@@ -225,6 +271,11 @@ final class PeekController {
     /// auto-close). A plain click on the idle notch does nothing (R10): there is
     /// no hover sensor window to receive the click.
     func hoverOpen() {
+        // Hover-to-open is notch-only (R5). NotchHoverSensor arms a 220pt
+        // fallback region on any screen, so without this gate hover would open
+        // browse on a non-notch Mac — where the menu item is the entry point.
+        guard NotchGeometry.anyNotchScreen() else { return }
+        guard !suppressed else { return } // blocked while sharing (R7)
         guard !(panel?.isVisible ?? false) else { return }
         enterBrowse()
     }
@@ -293,10 +344,19 @@ final class PeekController {
     // MARK: - Panel plumbing
 
     /// Create (if needed) and size the panel without ordering it on screen.
+    /// Picks the render surface: notch flush-mount when any display has a notch,
+    /// else the floating pill below the menu bar (U3; R1, R2).
     private func configurePanel() {
         let screen = NotchGeometry.targetScreen()
-        model.topInset = screen.map(NotchGeometry.notchHeight) ?? 0
-        model.notchWidth = screen.map(NotchGeometry.notchWidth) ?? 0
+        if NotchGeometry.anyNotchScreen() {
+            model.placement = .notch
+            model.topInset = screen.map(NotchGeometry.notchHeight) ?? 0
+            model.notchWidth = screen.map(NotchGeometry.notchWidth) ?? 0
+        } else {
+            model.placement = .floating
+            model.topInset = 0   // frame already clears the menu bar; the view's base +8 padding is the chrome
+            model.notchWidth = 0 // the floating clip ignores it
+        }
         if panel == nil {
             let host = NSHostingView(rootView: PeekView(model: model)) // SwiftUI-in-NSPanel seam
             if #available(macOS 13.3, *) { host.safeAreaRegions = [] } // reach the physical top edge
@@ -305,13 +365,26 @@ final class PeekController {
         updatePanelFrame()
     }
 
-    /// Size the panel flush to the top, tall enough for the current point count.
+    /// Size the panel tall enough for the current point count, then place it:
+    /// flush to the top in notch mode, just below the menu bar when floating.
     private func updatePanelFrame() {
         guard let panel, let screen = NotchGeometry.targetScreen() else { return }
         let rows = max(model.points.count, 1)
-        let height = model.topInset + CGFloat(rows) * 26 + 76 // notch clearance + rows + chrome
+        let height = model.topInset + CGFloat(rows) * 26 + 76 // notch clearance (0 when floating) + rows + chrome
         let size = CGSize(width: PeekView.width, height: height)
-        panel.setFrame(NotchGeometry.peekFrame(on: screen, size: size), display: true)
+        let frame = model.placement == .floating
+            ? NotchGeometry.floatingFrame(on: screen, size: size)
+            : NotchGeometry.peekFrame(on: screen, size: size)
+        panel.setFrame(frame, display: true)
+    }
+
+    /// Re-home a visible peek when the display configuration changes (R4) — a
+    /// notch display connecting/disconnecting flips placement between notch and
+    /// floating. No-op when nothing is showing (does not present a hidden panel).
+    /// `configurePanel()` recomputes placement and re-frames in one pass.
+    func handleScreenChange() {
+        guard panel?.isVisible == true else { return }
+        configurePanel()
     }
 
     // MARK: - Motion (calm ease-out; respects Reduce Motion)

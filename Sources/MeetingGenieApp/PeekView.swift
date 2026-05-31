@@ -1,6 +1,14 @@
 import SwiftUI
 import NotchCore
 
+/// Where the peek renders. `.notch` flush-mounts into the notch band;
+/// `.floating` is the plain rounded pill below the menu bar on non-notch
+/// displays (plan unit U2; R1).
+enum PeekPlacement {
+    case notch
+    case floating
+}
+
 /// Observable state bridge between the AppKit `PeekController` and the SwiftUI
 /// `PeekView` hosted inside the panel (plan units U7, U8, and review-navigation U2/U3/U5).
 @available(macOS 13, *)
@@ -10,6 +18,7 @@ final class PeekModel: ObservableObject {
     @Published var quickAddVisible: Bool = false
     @Published var topInset: CGFloat = 0   // notch/menu-bar band height to clear
     @Published var notchWidth: CGFloat = 0 // physical notch width (0 = no notch)
+    @Published var placement: PeekPlacement = .notch // notch flush-mount vs floating pill
 
     // Browse navigation (review-navigation feature).
     @Published var kind: ReviewKind = .active   // recency of the shown entry
@@ -196,15 +205,22 @@ struct PeekView: View {
     private var showsNav: Bool { model.isBrowsing || model.canPrev || model.canNext || model.nowBadge }
 
     private var peekClip: AnyShape {
-        if model.topInset > 0, model.notchWidth > 1, model.notchWidth < Self.width {
-            return AnyShape(NotchTShape(
-                notchWidth: model.notchWidth,
-                bandHeight: model.topInset,
-                shoulderRadius: 12,
-                bottomRadius: 20
-            ))
+        switch model.placement {
+        case .floating:
+            // Plain rounded pill below the menu bar (radius 20 matches the notch
+            // peek's body radius); the concave top would read wrong floating.
+            return AnyShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        case .notch:
+            if model.topInset > 0, model.notchWidth > 1, model.notchWidth < Self.width {
+                return AnyShape(NotchTShape(
+                    notchWidth: model.notchWidth,
+                    bandHeight: model.topInset,
+                    shoulderRadius: 12,
+                    bottomRadius: 20
+                ))
+            }
+            return AnyShape(NotchShape(topCornerRadius: 11, bottomCornerRadius: 20))
         }
-        return AnyShape(NotchShape(topCornerRadius: 11, bottomCornerRadius: 20))
     }
 
     var body: some View {
