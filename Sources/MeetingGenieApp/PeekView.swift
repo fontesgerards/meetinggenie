@@ -133,13 +133,21 @@ private struct PointRowView: View {
 
             if editable && hovering {
                 Button(action: beginEdit) {
-                    Image(systemName: "pencil").font(.system(size: 12)).foregroundStyle(MGTheme.iconIdle)
+                    Image(systemName: "pencil")
+                        .font(.system(size: 12))
+                        .foregroundStyle(MGTheme.iconIdle)
+                        .frame(width: 20, height: 20) // comfortable hit target, matching the nav arrows
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(PeekButtonStyle())
                 .help("Edit this point")
 
                 Button(action: onRemove) {
-                    Image(systemName: "minus.circle").font(.system(size: 12)).foregroundStyle(MGTheme.iconIdle)
+                    Image(systemName: "minus.circle")
+                        .font(.system(size: 12))
+                        .foregroundStyle(MGTheme.iconIdle)
+                        .frame(width: 20, height: 20)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(PeekButtonStyle())
                 .help("Remove this point")
@@ -155,7 +163,7 @@ private struct PointRowView: View {
             .focused($editFocused)
             .onSubmit { commitEdit() }
             .onExitCommand { editing = false } // Esc cancels
-            .onChange(of: editFocused) { focused in if !focused { editing = false } } // blur cancels
+            .onChange(of: editFocused) { focused in if !focused && editing { editing = false } } // blur cancels (guarded against teardown re-entry)
             .padding(.vertical, 4)
             .padding(.horizontal, 8)
             .background(MGTheme.fieldFill)
