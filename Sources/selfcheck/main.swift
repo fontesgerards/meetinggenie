@@ -233,6 +233,27 @@ do {
     print("  FAIL StoreWatcher threw: \(error)"); failures += 1
 }
 
+// MARK: SkillDoc — agent skill (R11, R12) + static-skill drift gate (U7)
+print("SkillDoc:")
+let skillMD = SkillDoc.markdown()
+check("R12: skill doc has YAML frontmatter (name + description)",
+      skillMD.hasPrefix("---\nname: notch\n") && skillMD.contains("description:"))
+let missingVerbs = SkillDoc.verbs.filter { !skillMD.contains($0.invocation) }
+check("R12: skill doc lists every verb", missingVerbs.isEmpty)
+check("bootstrap guards with command -v before brew install",
+      SkillDoc.bootstrapCommand.contains("command -v notch") && SkillDoc.bootstrapCommand.contains("brew install --cask \(SkillDoc.caskRef)"))
+// Drift gate: the committed static skill must equal the binary's emitted doc
+// (modulo a trailing newline from `notch skill > skill/SKILL.md`), so the
+// pre-install copy an agent reads can never document stale verbs.
+func trimTrailingNewlines(_ s: String) -> String {
+    var t = Substring(s)
+    while t.last == "\n" { t = t.dropLast() }
+    return String(t)
+}
+let committedSkill = (try? String(contentsOfFile: "skill/SKILL.md", encoding: .utf8))
+check("U7: committed skill/SKILL.md matches notch skill output (no drift)",
+      committedSkill.map(trimTrailingNewlines) == skillMD)
+
 print("")
 if failures == 0 {
     print("selfcheck: ALL PASS")
