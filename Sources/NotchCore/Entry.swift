@@ -27,16 +27,21 @@ public struct Point: Codable, Equatable, Identifiable {
     }
 }
 
-/// An entry is a start time plus a list of points (origin R1).
+/// An entry is a start time plus a list of points (origin R1), with an
+/// optional short user/agent-authored title (e.g. "Q3 Planning Sync").
+/// `title` is `Optional`, so synthesized `Decodable` reads a missing key as
+/// `nil` — a legacy titleless `store.json` loads unchanged, no migration.
 public struct Entry: Codable, Equatable, Identifiable {
     public var id: UUID
     public var startTime: Date
     public var points: [Point]
+    public var title: String?
 
-    public init(id: UUID = UUID(), startTime: Date, points: [Point] = []) {
+    public init(id: UUID = UUID(), startTime: Date, points: [Point] = [], title: String? = nil) {
         self.id = id
         self.startTime = startTime
         self.points = points
+        self.title = title
     }
 }
 
