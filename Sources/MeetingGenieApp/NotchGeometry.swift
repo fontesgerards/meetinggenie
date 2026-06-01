@@ -18,6 +18,12 @@ enum NotchGeometry {
         NSScreen.screens.first(where: hasNotch) ?? NSScreen.main
     }
 
+    /// True when any connected display has a notch. When false, the peek renders
+    /// as the floating fallback below the menu bar (plan unit U1; R1, R2).
+    static func anyNotchScreen() -> Bool {
+        NSScreen.screens.contains(where: hasNotch)
+    }
+
     /// Height of the notch / menu-bar safe-area band on this screen, used as the
     /// peek's top padding so its first line clears the notch.
     static func notchHeight(_ screen: NSScreen) -> CGFloat {
@@ -61,5 +67,35 @@ enum NotchGeometry {
         )
         rect.size.height += 1 // bleed 1pt above the top edge — seamless flush
         return rect
+    }
+
+    /// Frame for the floating fallback peek on a non-notch display: centered
+    /// horizontally and tucked just below the menu bar, so it reads as a plain
+    /// rounded pill rather than something growing out of a notch (plan unit U1;
+    /// R1). Pure over `NSRect`/`CGSize` (no `NSScreen`) so it is unit-testable —
+    /// the top edge sits at `visibleFrame.maxY` (the bottom of the menu bar),
+    /// with no pixel-bleed or flush-top trick.
+    static func floatingFrame(screenFrame: NSRect, visibleFrame: NSRect, size: CGSize) -> NSRect {
+        NSRect(
+            x: screenFrame.midX - size.width / 2,
+            y: visibleFrame.maxY - size.height, // top edge flush under the menu bar
+            width: size.width,
+            height: size.height
+        )
+    }
+
+    /// Convenience over `floatingFrame(screenFrame:visibleFrame:size:)` for a
+    /// live screen. The caller passes `size.width = PeekView.width` so the
+    /// floating pill matches the notch peek's width. The frame is snapped to
+    /// physical pixel boundaries (as `peekFrame` does) so a fractional `midX` or
+    /// menu-bar height doesn't blur text/borders on a non-Retina external display
+    /// — the common non-notch case. No 1pt bleed here: the pill isn't seaming to
+    /// a screen edge the way the notch flush-mount is.
+    static func floatingFrame(on screen: NSScreen, size: CGSize) -> NSRect {
+        let rect = floatingFrame(screenFrame: screen.frame, visibleFrame: screen.visibleFrame, size: size)
+        return screen.backingAlignedRect(
+            rect,
+            options: [.alignMinXOutward, .alignMaxYOutward, .alignWidthOutward, .alignHeightOutward]
+        )
     }
 }

@@ -1,6 +1,14 @@
 import SwiftUI
 import NotchCore
 
+/// Where the peek renders. `.notch` flush-mounts into the notch band;
+/// `.floating` is the plain rounded pill below the menu bar on non-notch
+/// displays (plan unit U2; R1).
+enum PeekPlacement {
+    case notch
+    case floating
+}
+
 /// Observable state bridge between the AppKit `PeekController` and the SwiftUI
 /// `PeekView` hosted inside the panel (plan units U7, U8, and review-navigation U2/U3/U5).
 @available(macOS 13, *)
@@ -10,6 +18,7 @@ final class PeekModel: ObservableObject {
     @Published var quickAddVisible: Bool = false
     @Published var topInset: CGFloat = 0   // notch/menu-bar band height to clear
     @Published var notchWidth: CGFloat = 0 // physical notch width (0 = no notch)
+    @Published var placement: PeekPlacement = .notch // notch flush-mount vs floating pill
 
     // Browse navigation (review-navigation feature).
     @Published var kind: ReviewKind = .active   // recency of the shown entry
@@ -204,26 +213,34 @@ struct PeekView: View {
     private var showsNav: Bool { model.isBrowsing || model.canPrev || model.canNext || model.nowBadge }
 
     private var peekClip: AnyShape {
-        if model.topInset > 0, model.notchWidth > 1, model.notchWidth < Self.width {
-            return AnyShape(NotchTShape(
-                notchWidth: model.notchWidth,
-                bandHeight: model.topInset,
-                shoulderRadius: 12,
-                bottomRadius: 20
-            ))
+        switch model.placement {
+        case .floating:
+            // Plain rounded pill below the menu bar (radius 20 matches the notch
+            // peek's body radius); the concave top would read wrong floating.
+            return AnyShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        case .notch:
+            if model.topInset > 0, model.notchWidth > 1, model.notchWidth < Self.width {
+                return AnyShape(NotchTShape(
+                    notchWidth: model.notchWidth,
+                    bandHeight: model.topInset,
+                    shoulderRadius: 12,
+                    bottomRadius: 20
+                ))
+            }
+            return AnyShape(NotchShape(topCornerRadius: 11, bottomCornerRadius: 20))
         }
-        return AnyShape(NotchShape(topCornerRadius: 11, bottomCornerRadius: 20))
     }
 
     var body: some View {
-        HStack(alignment: .top, spacing: 8) {
-            // ‹ prev — flush-left, only when there's an earlier entry.
-            if showsNav {
-                navArrow(system: "chevron.left", enabled: model.canPrev, action: model.onPrev)
-                    .accessibilityLabel("Previous meeting")
-            }
+        VStack(alignment: .leading, spacing: 6) {
+            // Top bar: ‹ prev, time + recency, › next (+now badge), × dismiss —
+            // a single .center-aligned row so every control shares one axis.
+            HStack(alignment: .center, spacing: 8) {
+                if showsNav {
+                    navArrow(system: "chevron.left", enabled: model.canPrev, action: model.onPrev)
+                        .accessibilityLabel("Previous meeting")
+                }
 
-            VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 6) {
                     Text(model.title)
                         .font(.system(size: MGTheme.sizeCaption2))
@@ -232,46 +249,47 @@ struct PeekView: View {
                     if showsNav { recencyLabel }
                 }
 
-                if let message = model.emptyMessage {
-                    Text(message)
-                        .font(.system(size: MGTheme.sizeCaption))
-                        .foregroundStyle(MGTheme.secondary)
-                } else {
-                    ForEach(Array(model.points.enumerated()), id: \.element.id) { index, point in
-                        PointRowView(
-                            point: point,
-                            kind: model.kind,
-                            onToggle: { model.onToggle(index) },
-                            onRemove: { model.onRemove(index) },
-                            onEdit: { model.onEdit(index, $0) },
-                            onEditBegin: { model.onEditBegin() }
-                        )
-                    }
-                    if model.kind != .past { quickAdd }
-                }
-            }
+                Spacer(minLength: 4)
 
-            Spacer(minLength: 4)
-
-            // › next (with the "now" badge) then × dismiss, top-right (× outermost).
-            if showsNav {
-                ZStack(alignment: .topTrailing) {
-                    navArrow(system: "chevron.right", enabled: model.canNext || model.nowBadge, action: model.onNext)
-                        .accessibilityLabel(model.nowBadge ? "A meeting is live — jump to it" : "Next meeting")
-                    if model.nowBadge {
-                        Circle().fill(MGTheme.green).frame(width: 6, height: 6).offset(x: 2, y: -2)
+                // › next (with the "now" badge) then × dismiss (× outermost).
+                if showsNav {
+                    ZStack(alignment: .topTrailing) {
+                        navArrow(system: "chevron.right", enabled: model.canNext || model.nowBadge, action: model.onNext)
+                            .accessibilityLabel(model.nowBadge ? "A meeting is live — jump to it" : "Next meeting")
+                        if model.nowBadge {
+                            Circle().fill(MGTheme.green).frame(width: 6, height: 6).offset(x: 2, y: -2)
+                        }
                     }
                 }
+
+                Button(action: { model.onDismiss() }) {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 15))
+                        .foregroundStyle(dismissHovering ? MGTheme.dismissHover : MGTheme.iconIdle)
+                }
+                .buttonStyle(PeekButtonStyle())
+                .onHover { dismissHovering = $0 }
+                .help(model.isBrowsing ? "Close" : "Done — archive these points")
             }
 
-            Button(action: { model.onDismiss() }) {
-                Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 15))
-                    .foregroundStyle(dismissHovering ? MGTheme.dismissHover : MGTheme.iconIdle)
+            // Body: points list + quick-add, or the empty-browse message.
+            if let message = model.emptyMessage {
+                Text(message)
+                    .font(.system(size: MGTheme.sizeCaption))
+                    .foregroundStyle(MGTheme.secondary)
+            } else {
+                ForEach(Array(model.points.enumerated()), id: \.element.id) { index, point in
+                    PointRowView(
+                        point: point,
+                        kind: model.kind,
+                        onToggle: { model.onToggle(index) },
+                        onRemove: { model.onRemove(index) },
+                        onEdit: { model.onEdit(index, $0) },
+                        onEditBegin: { model.onEditBegin() }
+                    )
+                }
+                if model.kind != .past { quickAdd }
             }
-            .buttonStyle(PeekButtonStyle())
-            .onHover { dismissHovering = $0 }
-            .help(model.isBrowsing ? "Close" : "Done — archive these points")
         }
         .padding(.horizontal, 18)
         .padding(.bottom, 14)
