@@ -1,7 +1,7 @@
 ---
 date: 2026-06-01
 type: feat
-status: active
+status: completed
 ---
 
 # feat: Editable Meeting Title
