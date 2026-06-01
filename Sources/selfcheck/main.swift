@@ -151,6 +151,10 @@ do {
     try svc.removePoint(entryID: entry.id, index: 1)
     check("removePoint(entryID:) removes the targeted point", svc.entry(id: entry.id)?.points.map(\.text) == ["a", "c"])
     check("removePoint out-of-range throws", (try? svc.removePoint(entryID: entry.id, index: 9)) == nil)
+    let editID = svc.entry(id: entry.id)?.points.first?.id
+    try svc.updatePoint(entryID: entry.id, index: 0, text: "edited")
+    check("updatePoint replaces text, preserves id", svc.entry(id: entry.id)?.points.first?.text == "edited" && svc.entry(id: entry.id)?.points.first?.id == editID)
+    check("updatePoint rejects empty text", (try? svc.updatePoint(entryID: entry.id, index: 0, text: "   ")) == nil)
 } catch {
     print("  FAIL ReviewSequence threw: \(error)"); failures += 1
 }
