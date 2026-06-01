@@ -5,12 +5,16 @@ import Foundation
 public enum Limits {
     public static let maxPointsPerEntry = 7
     public static let maxPointLength = 80
+    /// A meeting title is a single glanceable header, so it is capped shorter
+    /// than a point.
+    public static let maxTitleLength = 60
 }
 
 public enum ValidationError: Error, Equatable, CustomStringConvertible {
     case emptyPoint
     case pointTooLong(max: Int)
     case tooManyPoints(max: Int)
+    case titleTooLong(max: Int)
 
     public var description: String {
         switch self {
@@ -20,6 +24,8 @@ public enum ValidationError: Error, Equatable, CustomStringConvertible {
             return "point text exceeds \(max) characters"
         case .tooManyPoints(let max):
             return "an entry may hold at most \(max) points"
+        case .titleTooLong(let max):
+            return "title exceeds \(max) characters"
         }
     }
 }
@@ -54,6 +60,18 @@ public enum Validation {
         if clean.isEmpty { throw ValidationError.emptyPoint }
         if clean.count > Limits.maxPointLength {
             throw ValidationError.pointTooLong(max: Limits.maxPointLength)
+        }
+        return clean
+    }
+
+    /// Sanitize and validate a meeting title. Unlike a point, an empty title is
+    /// allowed and means "clear it" — returning `nil`. Length is measured after
+    /// sanitization; exactly `maxTitleLength` is accepted, one more throws.
+    public static func validateTitle(_ raw: String) throws -> String? {
+        let clean = Sanitizer.sanitize(raw)
+        if clean.isEmpty { return nil }
+        if clean.count > Limits.maxTitleLength {
+            throw ValidationError.titleTooLong(max: Limits.maxTitleLength)
         }
         return clean
     }
