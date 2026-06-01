@@ -86,8 +86,16 @@ enum NotchGeometry {
 
     /// Convenience over `floatingFrame(screenFrame:visibleFrame:size:)` for a
     /// live screen. The caller passes `size.width = PeekView.width` so the
-    /// floating pill matches the notch peek's width.
+    /// floating pill matches the notch peek's width. The frame is snapped to
+    /// physical pixel boundaries (as `peekFrame` does) so a fractional `midX` or
+    /// menu-bar height doesn't blur text/borders on a non-Retina external display
+    /// — the common non-notch case. No 1pt bleed here: the pill isn't seaming to
+    /// a screen edge the way the notch flush-mount is.
     static func floatingFrame(on screen: NSScreen, size: CGSize) -> NSRect {
-        floatingFrame(screenFrame: screen.frame, visibleFrame: screen.visibleFrame, size: size)
+        let rect = floatingFrame(screenFrame: screen.frame, visibleFrame: screen.visibleFrame, size: size)
+        return screen.backingAlignedRect(
+            rect,
+            options: [.alignMinXOutward, .alignMaxYOutward, .alignWidthOutward, .alignHeightOutward]
+        )
     }
 }
