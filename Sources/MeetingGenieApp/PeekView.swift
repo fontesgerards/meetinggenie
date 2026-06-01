@@ -386,6 +386,7 @@ struct PeekView: View {
                     onEdit: { model.onTitleEdit($0) },
                     onEditBegin: { model.onTitleEditBegin() }
                 )
+                .id(model.title) // reset inline-edit @State when the shown entry changes (time label is per-entry)
                 ForEach(Array(model.points.enumerated()), id: \.element.id) { index, point in
                     PointRowView(
                         point: point,
