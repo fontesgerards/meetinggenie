@@ -23,6 +23,7 @@ usage:
   notch remove <time>                remove the entry at <time>
   notch list                         list active entries
   notch clear                        remove all active entries (archive kept)
+  notch skill                        print the agent skill doc (SKILL.md) for this CLI
 """
 
 let arguments = Array(CommandLine.arguments.dropFirst())
@@ -103,6 +104,11 @@ do {
     case "clear":
         try service.clear()
         print("cleared active entries")
+
+    case "skill":
+        // Emit the agent skill doc, versioned with the binary so it can't drift
+        // from the verbs this CLI actually supports (R12).
+        print(SkillDoc.markdown())
 
     case "-h", "--help", "help":
         print(usage)
