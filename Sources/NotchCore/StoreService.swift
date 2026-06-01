@@ -14,22 +14,43 @@ public final class StoreService {
     /// Create (or replace) the entry at `startTime` with the given raw point
     /// strings. Validates and sanitizes each point and enforces the per-entry
     /// cap before writing anything (R16, R18).
+    /// Create (or replace) the entry at `startTime`. `title` encodes the
+    /// supplied-vs-not distinction at the boundary: `nil` = not supplied (an
+    /// existing entry's title is preserved on replace), a non-nil string
+    /// (including `""`) = supplied (validated and set, clearing on empty). All
+    /// validation runs before any store mutation so an invalid input leaves the
+    /// store untouched (R5, R7).
     @discardableResult
-    public func createEntry(at startTime: Date, points rawPoints: [String]) throws -> Entry {
+    public func createEntry(at startTime: Date, points rawPoints: [String], title: String? = nil) throws -> Entry {
         let cleaned = try rawPoints.map { try Validation.validatePoint($0) }
         if cleaned.count > Limits.maxPointsPerEntry {
             throw ValidationError.tooManyPoints(max: Limits.maxPointsPerEntry)
         }
+        let suppliedTitle = try title.map { try Validation.validateTitle($0) } // Optional<Optional<String>>: outer nil = not supplied
         var data = try store.load()
         var entry = Entry(startTime: startTime, points: cleaned.map { Point(text: $0) })
         if let idx = data.entries.firstIndex(where: { $0.startTime == startTime }) {
             entry.id = data.entries[idx].id
+            entry.title = suppliedTitle ?? data.entries[idx].title // preserve on replace when not supplied
             data.entries[idx] = entry
         } else {
+            entry.title = suppliedTitle ?? nil
             data.entries.append(entry)
         }
         try store.save(data)
         return entry
+    }
+
+    /// Set/replace/clear the title on the entry at `startTime` (R6). Empty text
+    /// clears the title. Used by `notch title`.
+    public func setTitle(at startTime: Date, title: String) throws {
+        let clean = try Validation.validateTitle(title)
+        var data = try store.load()
+        guard let idx = data.entries.firstIndex(where: { $0.startTime == startTime }) else {
+            throw ServiceError.noEntry(at: startTime)
+        }
+        data.entries[idx].title = clean
+        try store.save(data)
     }
 
     /// Append a point to the existing entry at `startTime` (R16-capped).
@@ -143,6 +164,19 @@ public final class StoreService {
         }
         guard data.entries[idx].points[index].text != clean else { return } // no-op: skip the write + file-watcher churn
         data.entries[idx].points[index].text = clean
+        try store.save(data)
+    }
+
+    /// Set/replace/clear the title on the entry with `entryID` (R3). Empty text
+    /// clears it. Fresh-read mutation, mirroring `updatePoint`. Used by the peek
+    /// inline edit.
+    public func setTitle(entryID: UUID, title: String) throws {
+        let clean = try Validation.validateTitle(title)
+        var data = try store.load()
+        guard let idx = data.entries.firstIndex(where: { $0.id == entryID }) else {
+            throw ServiceError.noEntryID
+        }
+        data.entries[idx].title = clean
         try store.save(data)
     }
 

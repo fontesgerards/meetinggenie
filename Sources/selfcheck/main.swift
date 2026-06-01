@@ -47,7 +47,9 @@ do {
     check("round-trips entries", (try? store.load()) == StoreData(entries: [entry]))
 
     let json = (try? String(contentsOf: url, encoding: .utf8))?.lowercased() ?? ""
-    let leaks = ["calendar", "attendee", "title", "zoom", "meet", "email"].filter { json.contains($0) }
+    // `title` is now a legitimate user/agent-authored field, so it is no longer
+    // in the leak list — only calendar/platform-derived fields stay banned (AE5).
+    let leaks = ["calendar", "attendee", "zoom", "meet", "email"].filter { json.contains($0) }
     check("AE5: no calendar/platform fields", leaks.isEmpty)
 
     let perms = (try? FileManager.default.attributesOfItem(atPath: url.path)[.posixPermissions]) as? NSNumber
@@ -56,6 +58,20 @@ do {
     let archived = Entry(startTime: Date(timeIntervalSince1970: 500), points: [Point(text: "old", checked: true)])
     try store.save(StoreData(archive: [archived]))
     check("archive retained with checked state", (try? store.load())?.archive == [archived])
+
+    // R9: titled entry round-trips, and AE5 stays green with a title present.
+    let titledURL = tempURL()
+    let titledStore = Store(url: titledURL)
+    let titled = Entry(startTime: Date(timeIntervalSince1970: 2_000), points: [Point(text: "p")], title: "Q3 Sync")
+    try titledStore.save(StoreData(entries: [titled]))
+    check("R9: title round-trips", (try? titledStore.load())?.entries.first?.title == "Q3 Sync")
+    let titledJSON = (try? String(contentsOf: titledURL, encoding: .utf8))?.lowercased() ?? ""
+    check("AE5: still green with a title present", !["calendar", "attendee", "zoom", "meet", "email"].contains { titledJSON.contains($0) })
+
+    // R9: a legacy store JSON with no `title` key decodes with title == nil.
+    let legacy = #"{"entries":[{"id":"\#(UUID().uuidString)","startTime":0,"points":[{"id":"\#(UUID().uuidString)","text":"x","checked":false}]}],"archive":[]}"#
+    let decoded = try? JSONDecoder().decode(StoreData.self, from: Data(legacy.utf8))
+    check("R9: legacy titleless entry decodes to nil title", decoded?.entries.first != nil && decoded?.entries.first?.title == nil)
 } catch {
     print("  FAIL Store threw: \(error)"); failures += 1
 }
@@ -77,6 +93,37 @@ do {
     check("clear empties active entries", (try? svc.list().isEmpty) == true)
 } catch {
     print("  FAIL StoreService threw: \(error)"); failures += 1
+}
+
+// MARK: Title validation + StoreService title ops (R3–R7)
+print("Title:")
+check("validateTitle trims + keeps text", (try? Validation.validateTitle("  Q3 Sync  ")) == "Q3 Sync")
+check("validateTitle empty -> nil (clear)", (try? Validation.validateTitle("   ")) == .some(nil))
+check("validateTitle 60 chars accepted", (try? Validation.validateTitle(String(repeating: "x", count: Limits.maxTitleLength))) == .some(String(repeating: "x", count: 60)))
+check("validateTitle 61 chars throws", (try? Validation.validateTitle(String(repeating: "x", count: Limits.maxTitleLength + 1))) == nil)
+check("validateTitle strips RLO override", (try? Validation.validateTitle("Q3\u{202E}Sync")) == "Q3Sync")
+do {
+    let svc = StoreService(store: Store(url: tempURL()))
+    let t = Date(timeIntervalSince1970: 1_700_000_000)
+    let created = try svc.createEntry(at: t, points: ["p"], title: "Q3 Sync")
+    check("createEntry sets title", created.title == "Q3 Sync")
+    let preserved = try svc.createEntry(at: t, points: ["p", "q"], title: nil) // not supplied
+    check("re-add without title preserves it", preserved.title == "Q3 Sync" && preserved.points.count == 2)
+    let cleared = try svc.createEntry(at: t, points: ["p"], title: "") // supplied empty -> clear
+    check("re-add with empty title clears it", cleared.title == nil)
+    try svc.setTitle(at: t, title: "Renamed")
+    let afterRename = try svc.list()
+    check("setTitle(at:) sets", afterRename.first?.title == "Renamed")
+    try svc.setTitle(at: t, title: "")
+    let afterClear = try svc.list()
+    check("setTitle(at:) empty clears", afterClear.count == 1 && afterClear.first?.title == nil)
+    check("setTitle(at:) missing time throws", (try? svc.setTitle(at: Date(timeIntervalSince1970: 5), title: "x")) == nil)
+    let id = (try svc.list()).first!.id
+    try svc.setTitle(entryID: id, title: "By ID")
+    check("setTitle(entryID:) sets", svc.entry(id: id)?.title == "By ID")
+    check("setTitle over-length throws, store unchanged", (try? svc.setTitle(entryID: id, title: String(repeating: "x", count: 61))) == nil && svc.entry(id: id)?.title == "By ID")
+} catch {
+    print("  FAIL Title StoreService threw: \(error)"); failures += 1
 }
 
 // MARK: TimeParser
