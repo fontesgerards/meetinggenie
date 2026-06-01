@@ -13,7 +13,9 @@ enum PeekPlacement {
 /// `PeekView` hosted inside the panel (plan units U7, U8, and review-navigation U2/U3/U5).
 @available(macOS 13, *)
 final class PeekModel: ObservableObject {
-    @Published var title: String = ""
+    @Published var title: String = ""          // the meeting's start time, formatted
+    @Published var entryID: UUID? = nil         // identity of the shown entry (for stable view keying)
+    @Published var meetingTitle: String? = nil  // optional user/agent-authored title
     @Published var points: [Point] = []
     @Published var quickAddVisible: Bool = false
     @Published var topInset: CGFloat = 0   // notch/menu-bar band height to clear
@@ -32,6 +34,8 @@ final class PeekModel: ObservableObject {
     var onRemove: (Int) -> Void = { _ in }
     var onEdit: (Int, String) -> Void = { _, _ in }
     var onEditBegin: () -> Void = {}
+    var onTitleEdit: (String) -> Void = { _ in }
+    var onTitleEditBegin: () -> Void = {}
     var onDismiss: () -> Void = {}
     var onQuickAddBegin: () -> Void = {}
     var onQuickAddSubmit: (String) -> Void = { _ in }
@@ -197,6 +201,110 @@ private struct PointRowView: View {
     }
 }
 
+/// The optional meeting-title row, between the time/nav bar and the points.
+/// `active`/`upcoming` are editable (hover-pencil → inline field, the same flow
+/// as `PointRowView`); `past` is read-only and dimmed. When there is no title,
+/// editable kinds show a faint "Add a title…" affordance and `past` shows
+/// nothing (the row collapses). Title type is semibold to read as a header,
+/// one rung heavier than the medium-weight point rows (plan U5; R2, R3, R4).
+@available(macOS 13, *)
+private struct TitleRowView: View {
+    let title: String?
+    let kind: ReviewKind
+    let onEdit: (String) -> Void
+    let onEditBegin: () -> Void
+    @State private var hovering = false
+    @State private var addHovering = false
+    @State private var editing = false
+    @State private var draft = ""
+    @FocusState private var editFocused: Bool
+
+    private var editable: Bool { kind != .past }
+    private var hasTitle: Bool { !(title ?? "").isEmpty }
+
+    var body: some View {
+        Group {
+            if editing {
+                editField
+            } else if hasTitle {
+                titleLabel
+            } else if editable {
+                addAffordance
+            } // untitled + past → nothing (row collapses)
+        }
+        .onHover { hovering = $0 }
+    }
+
+    private var titleLabel: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "tag.fill") // monochrome header anchor (no calendar/clock glyph — see design identity)
+                .font(.system(size: 10))
+                .foregroundStyle(kind == .past ? MGTheme.pastRow : MGTheme.secondary)
+            Text(title ?? "")
+                .font(.system(size: MGTheme.sizeCaption, weight: .semibold))
+                .foregroundStyle(kind == .past ? MGTheme.pastRow : Color.white)
+                .lineLimit(1)
+                .truncationMode(.tail)
+            if editable && hovering {
+                Button(action: beginEdit) {
+                    Image(systemName: "pencil")
+                        .font(.system(size: 12))
+                        .foregroundStyle(MGTheme.iconIdle)
+                        .frame(width: 20, height: 20)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(PeekButtonStyle())
+                .help("Edit title")
+            }
+            Spacer(minLength: 0)
+        }
+    }
+
+    private var addAffordance: some View {
+        Button(action: beginEdit) {
+            HStack(spacing: 6) {
+                Image(systemName: "tag") // outline mirrors the titled row's tag.fill
+                    .font(.system(size: 10))
+                Text("Add a title…")
+                    .font(.system(size: MGTheme.sizeCaption2))
+            }
+            .foregroundStyle(addHovering ? MGTheme.iconHover : MGTheme.placeholder)
+        }
+        .buttonStyle(PeekButtonStyle())
+        .onHover { addHovering = $0 }
+    }
+
+    private var editField: some View {
+        TextField("", text: $draft)
+            .textFieldStyle(.plain)
+            .font(.system(size: MGTheme.sizeCaption, weight: .semibold))
+            .foregroundStyle(Color.white)
+            .focused($editFocused)
+            .onSubmit { commit() }
+            .onExitCommand { editing = false } // Esc cancels
+            .onChange(of: editFocused) { focused in if !focused && editing { editing = false } } // blur cancels
+            .padding(.vertical, 4)
+            .padding(.horizontal, 8)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(MGTheme.fieldFill)
+            .clipShape(RoundedRectangle(cornerRadius: 6))
+            .overlay(RoundedRectangle(cornerRadius: 6).stroke(MGTheme.fieldBorderFocus, lineWidth: 1))
+            .onAppear { editFocused = true }
+    }
+
+    private func beginEdit() {
+        draft = title ?? ""
+        onEditBegin()       // deliberate focus handoff (R25)
+        editing = true
+    }
+
+    private func commit() {
+        let text = draft
+        editing = false
+        onEdit(text)        // empty commits as a clear (validated downstream)
+    }
+}
+
 /// The peek's contents: a recency-labelled title row, the points list with
 /// per-recency gating, quick-add, prev/next browse arrows, a "now" badge, and a
 /// dismiss control (origin R1–R8, R11, R12, R25; AE1–AE5).
@@ -278,6 +386,15 @@ struct PeekView: View {
                     .font(.system(size: MGTheme.sizeCaption))
                     .foregroundStyle(MGTheme.secondary)
             } else {
+                // Optional meeting-title row, above the points (omitted in the
+                // empty-browse state handled by the branch above).
+                TitleRowView(
+                    title: model.meetingTitle,
+                    kind: model.kind,
+                    onEdit: { model.onTitleEdit($0) },
+                    onEditBegin: { model.onTitleEditBegin() }
+                )
+                .id(model.entryID) // reset inline-edit @State when the shown entry changes (UUID — unique across days, unlike the time label)
                 ForEach(Array(model.points.enumerated()), id: \.element.id) { index, point in
                     PointRowView(
                         point: point,

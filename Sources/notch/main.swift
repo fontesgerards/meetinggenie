@@ -16,8 +16,9 @@ func displayTime(_ date: Date) -> String { TimeFormatting.display(date) }
 
 let usage = """
 usage:
-  notch add <time> <point>...        create/replace the entry at <time>
+  notch add <time> [--title <text>] <point>...   create/replace the entry at <time>
   notch add-point <time> <text>      append a point to the entry at <time>
+  notch title <time> [<text>]        set the entry's title (empty/omitted clears)
   notch remove-point <time> <n>      remove the nth (1-based) point
   notch remove <time>                remove the entry at <time>
   notch list                         list active entries
@@ -40,10 +41,32 @@ func requireTime(_ raw: String) -> Date {
 do {
     switch command {
     case "add":
-        guard rest.count >= 2 else { die("usage: notch add <time> <point>...") }
+        // Pull an optional `--title <value>` out of the args wherever it
+        // appears; the rest are positional time + points. Absent flag → nil
+        // (preserve any existing title on replace); `--title ""` → "" (clear).
+        var args = rest
+        var title: String? = nil
+        if let flagIdx = args.firstIndex(of: "--title") {
+            guard flagIdx + 1 < args.count else { die("usage: notch add <time> [--title <text>] <point>...") }
+            title = args[flagIdx + 1]
+            args.removeSubrange(flagIdx...(flagIdx + 1))
+        }
+        guard args.count >= 2 else { die("usage: notch add <time> [--title <text>] <point>...") }
+        let time = requireTime(args[0])
+        let entry = try service.createEntry(at: time, points: Array(args.dropFirst()), title: title)
+        let titleSuffix = entry.title.map { " — \"\($0)\"" } ?? " (untitled)"
+        print("added entry at \(displayTime(entry.startTime))\(titleSuffix) with \(entry.points.count) point(s)")
+
+    case "title":
+        guard rest.count >= 1 else { die("usage: notch title <time> [<text>]") }
         let time = requireTime(rest[0])
-        let entry = try service.createEntry(at: time, points: Array(rest.dropFirst()))
-        print("added entry at \(displayTime(entry.startTime)) with \(entry.points.count) point(s)")
+        let text = rest.dropFirst().joined(separator: " ")
+        try service.setTitle(at: time, title: text)
+        if (try? Validation.validateTitle(text)) == .some(nil) {
+            print("cleared title at \(displayTime(time))")
+        } else {
+            print("set title at \(displayTime(time))")
+        }
 
     case "add-point":
         guard rest.count >= 2 else { die("usage: notch add-point <time> <text>") }
@@ -69,7 +92,8 @@ do {
             print("(no active entries)")
         } else {
             for entry in entries {
-                print("\(displayTime(entry.startTime)):")
+                let titleSuffix = entry.title.map { " — \($0)" } ?? ""
+                print("\(displayTime(entry.startTime))\(titleSuffix):")
                 for (i, point) in entry.points.enumerated() {
                     print("  \(i + 1). [\(point.checked ? "x" : " ")] \(point.text)")
                 }
