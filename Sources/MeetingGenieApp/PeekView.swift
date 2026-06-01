@@ -236,6 +236,9 @@ private struct TitleRowView: View {
 
     private var titleLabel: some View {
         HStack(spacing: 6) {
+            Image(systemName: "tag.fill") // monochrome header anchor (no calendar/clock glyph — see design identity)
+                .font(.system(size: 10))
+                .foregroundStyle(kind == .past ? MGTheme.pastRow : MGTheme.secondary)
             Text(title ?? "")
                 .font(.system(size: MGTheme.sizeCaption, weight: .semibold))
                 .foregroundStyle(kind == .past ? MGTheme.pastRow : Color.white)
@@ -258,9 +261,13 @@ private struct TitleRowView: View {
 
     private var addAffordance: some View {
         Button(action: beginEdit) {
-            Text("Add a title…")
-                .font(.system(size: MGTheme.sizeCaption2))
-                .foregroundStyle(addHovering ? MGTheme.iconHover : MGTheme.placeholder)
+            HStack(spacing: 6) {
+                Image(systemName: "tag") // outline mirrors the titled row's tag.fill
+                    .font(.system(size: 10))
+                Text("Add a title…")
+                    .font(.system(size: MGTheme.sizeCaption2))
+            }
+            .foregroundStyle(addHovering ? MGTheme.iconHover : MGTheme.placeholder)
         }
         .buttonStyle(PeekButtonStyle())
         .onHover { addHovering = $0 }
