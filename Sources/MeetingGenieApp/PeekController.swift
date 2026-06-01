@@ -37,6 +37,8 @@ final class PeekController {
         model.onRemove = { [weak self] in self?.removePoint(index: $0) }
         model.onEdit = { [weak self] in self?.editPoint(index: $0, text: $1) }
         model.onEditBegin = { [weak self] in self?.beginQuickAdd() } // reuse the key-focus handoff
+        model.onTitleEdit = { [weak self] in self?.editTitle(text: $0) }
+        model.onTitleEditBegin = { [weak self] in self?.beginQuickAdd() } // same key-focus handoff
         model.onDismiss = { [weak self] in self?.dismiss() }
         model.onQuickAddBegin = { [weak self] in self?.beginQuickAdd() }
         model.onQuickAddSubmit = { [weak self] in self?.quickAdd(text: $0) }
@@ -62,6 +64,7 @@ final class PeekController {
         model.quickAddVisible = false
         model.kind = .active
         model.title = TimeFormatting.display(entry.startTime)
+        model.meetingTitle = entry.title
         model.points = entry.points
         refreshNavFlags(forEntryID: entry.id) // arrows page off the live peek if neighbors exist
         configurePanel()
@@ -137,6 +140,22 @@ final class PeekController {
         panel?.resignKey()
     }
 
+    private func editTitle(text: String) {
+        guard model.kind != .past else { return } // can't edit history (R7)
+        guard let id = displayedEntryID() else { return }
+        try? service.setTitle(entryID: id, title: text) // validated/sanitized; empty clears (R4)
+        if let entry = service.entry(id: id) {
+            model.meetingTitle = entry.title
+            // Keep the browse cache in sync (mirror refreshPoints) so paging
+            // away and back doesn't show a stale pre-edit title.
+            if let idx = sequence.firstIndex(where: { $0.entry.id == id }) {
+                sequence[idx] = ReviewItem(entry: entry, kind: sequence[idx].kind)
+            }
+        }
+        updatePanelFrame()
+        panel?.resignKey()
+    }
+
     private func beginQuickAdd() {
         panel?.makeKeyAndOrderFront(nil) // deliberate focus handoff (R25)
     }
@@ -201,6 +220,7 @@ final class PeekController {
             currentIndex = nil
             model.emptyMessage = "No nearby meetings"
             model.title = ""
+            model.meetingTitle = nil
             model.points = []
             model.kind = .past // read-only; nothing is mutable in the empty state
             setNavFlags()
@@ -288,6 +308,7 @@ final class PeekController {
         let item = sequence[i]
         model.emptyMessage = nil
         model.title = TimeFormatting.display(item.entry.startTime)
+        model.meetingTitle = item.entry.title
         model.points = item.entry.points
         model.kind = item.kind
         model.quickAddVisible = false
@@ -371,7 +392,11 @@ final class PeekController {
     private func updatePanelFrame() {
         guard let panel, let screen = NotchGeometry.targetScreen() else { return }
         let rows = max(model.points.count, 1)
-        let height = model.topInset + CGFloat(rows) * 26 + 76 // notch clearance (0 when floating) + rows + chrome
+        // The title row occupies one row when a title is shown, or when the entry
+        // is active/upcoming (the "Add a title…" affordance also takes a row).
+        let showsTitleRow = model.emptyMessage == nil && (model.meetingTitle != nil || model.kind != .past)
+        let titleRowHeight: CGFloat = showsTitleRow ? 26 : 0
+        let height = model.topInset + CGFloat(rows) * 26 + titleRowHeight + 76 // notch clearance + rows + title + chrome
         let size = CGSize(width: PeekView.width, height: height)
         let frame = model.placement == .floating
             ? NotchGeometry.floatingFrame(on: screen, size: size)
