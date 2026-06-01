@@ -14,6 +14,7 @@ enum PeekPlacement {
 @available(macOS 13, *)
 final class PeekModel: ObservableObject {
     @Published var title: String = ""          // the meeting's start time, formatted
+    @Published var entryID: UUID? = nil         // identity of the shown entry (for stable view keying)
     @Published var meetingTitle: String? = nil  // optional user/agent-authored title
     @Published var points: [Point] = []
     @Published var quickAddVisible: Bool = false
@@ -393,7 +394,7 @@ struct PeekView: View {
                     onEdit: { model.onTitleEdit($0) },
                     onEditBegin: { model.onTitleEditBegin() }
                 )
-                .id(model.title) // reset inline-edit @State when the shown entry changes (time label is per-entry)
+                .id(model.entryID) // reset inline-edit @State when the shown entry changes (UUID — unique across days, unlike the time label)
                 ForEach(Array(model.points.enumerated()), id: \.element.id) { index, point in
                     PointRowView(
                         point: point,

@@ -64,6 +64,7 @@ final class PeekController {
         model.quickAddVisible = false
         model.kind = .active
         model.title = TimeFormatting.display(entry.startTime)
+        model.entryID = entry.id
         model.meetingTitle = entry.title
         model.points = entry.points
         refreshNavFlags(forEntryID: entry.id) // arrows page off the live peek if neighbors exist
@@ -220,6 +221,7 @@ final class PeekController {
             currentIndex = nil
             model.emptyMessage = "No nearby meetings"
             model.title = ""
+            model.entryID = nil
             model.meetingTitle = nil
             model.points = []
             model.kind = .past // read-only; nothing is mutable in the empty state
@@ -308,6 +310,7 @@ final class PeekController {
         let item = sequence[i]
         model.emptyMessage = nil
         model.title = TimeFormatting.display(item.entry.startTime)
+        model.entryID = item.entry.id
         model.meetingTitle = item.entry.title
         model.points = item.entry.points
         model.kind = item.kind
