@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Info.plist template for the MeetingGenie .app bundle (plan U1/U2).
+  scripts/package-app.sh substitutes __SHORT_VERSION__ and __BUILD_VERSION__.
+  SUFeedURL / SUPublicEDKey are filled in once Sparkle (U2) and the EdDSA
+  keypair (U9) exist — left as comments here so the unsigned/dev bundle builds.
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleName</key>
+    <string>MeetingGenie</string>
+    <key>CFBundleDisplayName</key>
+    <string>MeetingGenie</string>
+    <key>CFBundleIdentifier</key>
+    <string>app.meetinggenie</string>
+    <key>CFBundleExecutable</key>
+    <string>MeetingGenie</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleShortVersionString</key>
+    <string>__SHORT_VERSION__</string>
+    <key>CFBundleVersion</key>
+    <string>__BUILD_VERSION__</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>13.0</string>
+    <key>LSUIElement</key>
+    <true/>
+    <key>NSHighResolutionCapable</key>
+    <true/>
+    <!--
+    Filled in by U2/U9 once Sparkle + the EdDSA keypair exist:
+    <key>SUFeedURL</key>
+    <string>https://…/appcast.xml</string>
+    <key>SUPublicEDKey</key>
+    <string>__SPARKLE_PUBLIC_ED_KEY__</string>
+    -->
+</dict>
+</plist>
