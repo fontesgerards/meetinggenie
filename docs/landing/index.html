@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MeetingGenie — talking points at your notch</title>
+<!-- Privacy-first: no analytics, no trackers, no third-party requests (R16). -->
+<style>
+  :root { --bg:#000; --fg:#fff; --dim:rgba(255,255,255,.55); --line:rgba(255,255,255,.12); --green:#30D158; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg);
+    font:16px/1.55 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+    -webkit-font-smoothing:antialiased; }
+  main { max-width:680px; margin:0 auto; padding:96px 24px 64px; }
+  h1 { font-size:40px; line-height:1.1; letter-spacing:-.02em; margin:0 0 12px; }
+  .tag { color:var(--dim); font-size:19px; margin:0 0 40px; }
+  h2 { font-size:13px; text-transform:uppercase; letter-spacing:.08em; color:var(--dim);
+    margin:40px 0 12px; font-weight:600; }
+  p { margin:0 0 14px; }
+  code, pre { font-family:"SF Mono", ui-monospace, Menlo, monospace; }
+  pre { background:rgba(255,255,255,.06); border:1px solid var(--line); border-radius:8px;
+    padding:14px 16px; overflow-x:auto; font-size:14px; }
+  .pill { display:inline-block; border:1px solid var(--line); border-radius:999px;
+    padding:3px 10px; font-size:12px; color:var(--dim); }
+  a { color:var(--green); text-decoration:none; }
+  a:hover { text-decoration:underline; }
+  ul { padding-left:20px; } li { margin:6px 0; color:var(--dim); }
+  li b { color:var(--fg); font-weight:600; }
+  footer { color:var(--dim); font-size:13px; margin-top:56px; border-top:1px solid var(--line); padding-top:20px; }
+</style>
+</head>
+<body>
+<main>
+  <span class="pill">macOS · privacy-first · local-only</span>
+  <h1>MeetingGenie</h1>
+  <p class="tag">Your prepared talking points, waiting at the notch when a meeting starts. Written by your AI agent, glanceable mid-call.</p>
+
+  <h2>Install</h2>
+  <pre>brew install --cask fontesgerards/meetinggenie-tap/meetinggenie</pre>
+  <p style="color:var(--dim);font-size:14px">Signed &amp; notarized. Installs the menu-bar app and the <code>notch</code> CLI. Updates itself in the background.</p>
+
+  <h2>How it works</h2>
+  <ul>
+    <li><b>Your agent writes the points.</b> Any shell-capable agent runs the <code>notch</code> CLI to set talking points for a time.</li>
+    <li><b>They appear at the notch.</b> At the meeting's start time, a calm peek shows them at the MacBook notch.</li>
+    <li><b>Only times + notes are stored</b> — no calendar, no attendees, no integrations, no tracking.</li>
+  </ul>
+
+  <h2>For agents</h2>
+  <p style="color:var(--dim);font-size:14px">Once installed, the CLI describes itself:</p>
+  <pre>notch skill        # prints the agent skill (SKILL.md)
+notch add 2pm --title "Q3 Sync" "Raise the budget" "Ask about timeline"</pre>
+
+  <footer>
+    Source &amp; the portable skill on <a href="https://github.com/fontesgerards/meetinggenie">GitHub</a>.
+    No analytics on this page.
+  </footer>
+</main>
+</body>
+</html>
