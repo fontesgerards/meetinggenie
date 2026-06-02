@@ -1,5 +1,6 @@
 import AppKit
 import NotchCore
+import Sparkle
 
 /// Wires the menu-bar agent together (plan unit U5): status item + menu,
 /// scheduler, file watcher, and the peek controller. Re-arms on wake, clock
@@ -13,8 +14,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var watcher: StoreWatcher?
     private var statusItem: NSStatusItem?
     private var hoverSensor: NotchHoverSensor?
+    // Sparkle in-app auto-update (U2). Held strongly; starts a background check
+    // against the https appcast in Info.plist — the app's only network call.
+    private var updaterController: SPUStandardUpdaterController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        updaterController = SPUStandardUpdaterController(
+            startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
         setupStatusItem()
         controller.onArchiveChanged = { [weak self] in self?.rebuildMenu() }
 
@@ -100,6 +106,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         menu.addItem(.separator())
 
+        let checkUpdates = NSMenuItem(
+            title: "Check for Updates…",
+            action: #selector(checkForUpdates),
+            keyEquivalent: ""
+        )
+        checkUpdates.target = self
+        menu.addItem(checkUpdates)
+
         let quit = NSMenuItem(
             title: "Quit MeetingGenie",
             action: #selector(NSApplication.terminate(_:)),
@@ -122,5 +136,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func reopen() {
         controller.reopenLastArchivedToday()
         rebuildMenu()
+    }
+
+    @objc private func checkForUpdates() {
+        updaterController?.checkForUpdates(nil)
     }
 }
