@@ -13,7 +13,7 @@
     <key>CFBundleDisplayName</key>
     <string>MeetingGenie</string>
     <key>CFBundleIdentifier</key>
-    <string>app.meetinggenie</string>
+    <string>com.fontesgerards.meetinggenie</string>
     <key>CFBundleExecutable</key>
     <string>MeetingGenie</string>
     <key>CFBundlePackageType</key>
