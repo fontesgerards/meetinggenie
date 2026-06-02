@@ -11,9 +11,10 @@
 # Usage: scripts/package-app.sh [short_version] [--native]
 #   short_version defaults to 0.1.0; the build number is the git commit count
 #   (monotonic — required by both notarization and Sparkle).
-#   --native builds a single-arch bundle for LOCAL use (e.g. the U9 GUI
-#   verification gate). A SHIPPING build must be universal, which requires full
-#   Xcode (`swift build --arch` uses xcbuild); the default attempts universal.
+#   --native builds a single-arch (host) bundle for LOCAL use (e.g. the U9 GUI
+#   verification gate). The default builds a universal (arm64+x86_64) bundle via
+#   two native per-arch compiles + lipo — no xcbuild, so it works on any machine
+#   with the Swift toolchain and the (universal) macOS SDK.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -35,14 +36,26 @@ if [ "$NATIVE" -eq 1 ]; then
     swift build -c release
     BIN_DIR="$(swift build -c release --show-bin-path)"
 else
-    echo "==> Universal release build (arm64 + x86_64)"
-    if ! swift build -c release --arch arm64 --arch x86_64; then
-        echo "error: universal build failed. `swift build --arch` needs full Xcode (xcbuild)." >&2
-        echo "       On a Command-Line-Tools-only machine, use --native for a local bundle;" >&2
-        echo "       shipping builds must be universal and run on a machine with Xcode." >&2
-        exit 1
-    fi
-    BIN_DIR=".build/apple/Products/Release"
+    echo "==> Universal release build (arm64 + x86_64 via per-arch native builds + lipo)"
+    # `swift build --arch arm64 --arch x86_64` routes through xcbuild, which is
+    # broken on Xcode 16.x for this package: swiftLanguageMode(.v5) trips
+    # "Swift language versions ... (given: [5], supported: [])" and "Unexpected
+    # duplicate tasks". Instead build each slice with the NATIVE build system
+    # (llbuild) — `-Xswiftc -target` selects the arch, and the macOS SDK is
+    # universal so x86_64 cross-compiles on an arm64 host — into separate
+    # scratch dirs, then lipo the two slices together. No xcbuild involved.
+    echo "    -- arm64 slice"
+    swift build -c release --scratch-path .build-arm64  -Xswiftc -target -Xswiftc arm64-apple-macos13.0
+    echo "    -- x86_64 slice"
+    swift build -c release --scratch-path .build-x86_64 -Xswiftc -target -Xswiftc x86_64-apple-macos13.0
+    ARM_DIR="$(swift build -c release --scratch-path .build-arm64  -Xswiftc -target -Xswiftc arm64-apple-macos13.0  --show-bin-path)"
+    X86_DIR="$(swift build -c release --scratch-path .build-x86_64 -Xswiftc -target -Xswiftc x86_64-apple-macos13.0 --show-bin-path)"
+    # --show-bin-path reports the host-triple dir name even for the cross slice,
+    # but the binary inside is the requested arch and the scratch dirs differ.
+    BIN_DIR="build/universal"
+    rm -rf "$BIN_DIR"; mkdir -p "$BIN_DIR"
+    lipo -create "${ARM_DIR}/MeetingGenie" "${X86_DIR}/MeetingGenie" -output "${BIN_DIR}/MeetingGenie"
+    lipo -create "${ARM_DIR}/notch"        "${X86_DIR}/notch"        -output "${BIN_DIR}/notch"
 fi
 
 APP_BIN="${BIN_DIR}/MeetingGenie"
@@ -67,8 +80,10 @@ lipo -info "${OUT}/Contents/Resources/notch"
 echo "==> Embedding Sparkle.framework"
 # Locate the framework rather than hardcoding the arch-slice path (robust across
 # Sparkle/SwiftPM versions). On macOS the xcframework yields one universal slice.
-SPARKLE_FW="$(find .build/artifacts -name 'Sparkle.framework' -type d 2>/dev/null | head -1)"
-[ -n "$SPARKLE_FW" ] && [ -d "$SPARKLE_FW" ] || { echo "error: Sparkle.framework not found under .build/artifacts (run 'swift package resolve')" >&2; exit 1; }
+# Search both the native (.build) and per-arch universal (.build-arm64) scratch
+# trees; the xcframework slice it points to is already universal (arm64+x86_64).
+SPARKLE_FW="$(find .build-arm64/artifacts .build/artifacts -path '*macos-arm64_x86_64*' -name 'Sparkle.framework' -type d 2>/dev/null | head -1)"
+[ -n "$SPARKLE_FW" ] && [ -d "$SPARKLE_FW" ] || { echo "error: Sparkle.framework not found under .build*/artifacts (run 'swift package resolve')" >&2; exit 1; }
 # ditto preserves the Versions/Current symlink the framework needs to load.
 ditto "$SPARKLE_FW" "${OUT}/Contents/Frameworks/Sparkle.framework"
 
