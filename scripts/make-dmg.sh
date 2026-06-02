@@ -10,12 +10,9 @@ APP="build/MeetingGenie.app"
 NOTARY_PROFILE="${NOTARY_PROFILE:-MeetingGenie}"
 [ -d "$APP" ] || { echo "error: $APP not found" >&2; exit 1; }
 
-# Notary auth: App Store Connect API key (CI) when set, else keychain profile.
-if [ -n "${AC_API_KEY_ID:-}" ] && [ -n "${AC_API_ISSUER_ID:-}" ] && [ -n "${AC_API_KEY_PATH:-}" ]; then
-    NOTARY_AUTH=(--key "$AC_API_KEY_PATH" --key-id "$AC_API_KEY_ID" --issuer "$AC_API_ISSUER_ID")
-else
-    NOTARY_AUTH=(--keychain-profile "$NOTARY_PROFILE")
-fi
+# Notary auth (API key in CI, else keychain profile) — shared with sign-and-notarize.sh.
+source scripts/lib-notary.sh
+resolve_notary_auth
 
 VERSION="${1:-$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$APP/Contents/Info.plist")}"
 DMG="build/MeetingGenie-${VERSION}.dmg"

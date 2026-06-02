@@ -30,21 +30,9 @@ if [ -z "$IDENTITY" ]; then
 fi
 echo "==> Signing identity: $IDENTITY"
 
-# Notarization auth: an App Store Connect API key when its env vars are set
-# (CI), else the local `notarytool store-credentials` keychain profile.
-if [ -n "${AC_API_KEY_ID:-}" ] && [ -n "${AC_API_ISSUER_ID:-}" ] && [ -n "${AC_API_KEY_PATH:-}" ]; then
-    NOTARY_AUTH=(--key "$AC_API_KEY_PATH" --key-id "$AC_API_KEY_ID" --issuer "$AC_API_ISSUER_ID")
-    echo "==> Notary auth: App Store Connect API key"
-else
-    NOTARY_AUTH=(--keychain-profile "$NOTARY_PROFILE")
-    if ! xcrun notarytool history "${NOTARY_AUTH[@]}" >/dev/null 2>&1; then
-        echo "error: notary profile '$NOTARY_PROFILE' not found, and no App Store Connect API key env is set." >&2
-        echo "  Local: xcrun notarytool store-credentials $NOTARY_PROFILE --apple-id <you> --team-id <TEAMID>" >&2
-        echo "  CI:    set AC_API_KEY_ID, AC_API_ISSUER_ID, AC_API_KEY_PATH." >&2
-        exit 1
-    fi
-    echo "==> Notary auth: keychain profile '$NOTARY_PROFILE'"
-fi
+# Notarization auth (API key in CI, else keychain profile) — shared with make-dmg.sh.
+source scripts/lib-notary.sh
+resolve_notary_auth
 
 sign() { codesign --force --options runtime --timestamp --sign "$IDENTITY" "$@"; }
 
