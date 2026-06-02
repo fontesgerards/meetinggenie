@@ -15,6 +15,9 @@ Installs the notarized menu-bar app and puts the `notch` CLI on your `PATH`. The
 app self-updates in the background via Sparkle. Landing page:
 <https://fontesgerards.github.io/meetinggenie/>.
 
+MeetingGenie is free and open — build it yourself or `brew install`. If it's
+useful to you, you can [buy me a coffee](https://buymeacoffee.com/fredfontes). ☕
+
 ## Layout
 
 Everything builds with SwiftPM (no Xcode project required):
