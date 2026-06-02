@@ -25,25 +25,30 @@ variables → Actions** (ideally scoped to a protected `release` environment).
 
 **Developer ID cert (`.p12`)** — Keychain Access → find *"Developer ID
 Application: … (R47R74J893)"* → right-click → **Export** → save a `.p12` with a
-password. Then:
+password. Then pipe it straight into the env-scoped secret (value never hits the
+clipboard or disk; delete the `.p12` afterward — the Keychain keeps the original):
 ```sh
-base64 -i MeetingGenie-DevID.p12 | pbcopy   # → DEVELOPER_ID_CERT_P12_BASE64
+base64 -i /path/to/your.p12 | tr -d '\n' \
+  | gh secret set DEVELOPER_ID_CERT_P12_BASE64 --env release -R fontesgerards/meetinggenie
+gh secret set DEVELOPER_ID_CERT_PASSWORD --env release -R fontesgerards/meetinggenie  # paste export password
 ```
-Set `DEVELOPER_ID_CERT_PASSWORD` to that export password.
 
 **App Store Connect API key** — App Store Connect → **Users and Access →
 Integrations → Keys** → generate a key (Developer access is enough for
 notarization). Download `AuthKey_XXXX.p8` (one-time). The page shows the **Key
 ID** and, at top, the **Issuer ID**.
 ```sh
-base64 -i AuthKey_XXXX.p8 | pbcopy           # → AC_API_KEY_P8_BASE64
+gh secret set AC_API_KEY_ID    --env release -R fontesgerards/meetinggenie   # paste Key ID (in the .p8 filename)
+gh secret set AC_API_ISSUER_ID --env release -R fontesgerards/meetinggenie   # paste Issuer ID (UUID atop the Keys tab)
+base64 -i ~/Downloads/AuthKey_XXXXXXXXXX.p8 | tr -d '\n' \
+  | gh secret set AC_API_KEY_P8_BASE64 --env release -R fontesgerards/meetinggenie
 ```
 
 **Sparkle EdDSA private key** — export the key `generate_keys` stored in your
 login keychain:
 ```sh
 .build/artifacts/sparkle/Sparkle/bin/generate_keys -x sparkle_private_key
-cat sparkle_private_key | pbcopy             # → SPARKLE_ED_PRIVATE_KEY
+gh secret set SPARKLE_ED_PRIVATE_KEY --env release -R fontesgerards/meetinggenie < sparkle_private_key
 rm sparkle_private_key                        # don't leave it on disk
 ```
 (The public half is already in `packaging/Info.plist` as `SUPublicEDKey` — don't change it, or existing installs can't verify updates.)
