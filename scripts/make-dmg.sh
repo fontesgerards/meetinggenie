@@ -10,6 +10,10 @@ APP="build/MeetingGenie.app"
 NOTARY_PROFILE="${NOTARY_PROFILE:-MeetingGenie}"
 [ -d "$APP" ] || { echo "error: $APP not found" >&2; exit 1; }
 
+# Notary auth (API key in CI, else keychain profile) — shared with sign-and-notarize.sh.
+source scripts/lib-notary.sh
+resolve_notary_auth
+
 VERSION="${1:-$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$APP/Contents/Info.plist")}"
 DMG="build/MeetingGenie-${VERSION}.dmg"
 STAGE="build/dmg-stage"
@@ -24,7 +28,7 @@ echo "==> Building ${DMG}"
 hdiutil create -volname "MeetingGenie" -srcfolder "$STAGE" -ov -format UDZO "$DMG" >/dev/null
 
 echo "==> Notarizing the DMG"
-xcrun notarytool submit "$DMG" --keychain-profile "$NOTARY_PROFILE" --wait
+xcrun notarytool submit "$DMG" "${NOTARY_AUTH[@]}" --wait
 xcrun stapler staple "$DMG"
 xcrun stapler validate "$DMG"
 
