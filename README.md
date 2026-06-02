@@ -5,9 +5,6 @@ points as a calm, always-on-top "peek" during a call. Points are written
 primarily by AI agents through the `notch` CLI; the only data ever stored is
 times and note text — no calendar, no integrations.
 
-See [`docs/brainstorms/`](docs/brainstorms/) for the requirements and
-[`docs/plans/`](docs/plans/) for the implementation plan.
-
 ## Install
 
 ```bash

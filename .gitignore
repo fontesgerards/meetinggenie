@@ -6,3 +6,6 @@ DerivedData/
 xcuserdata/
 .swiftpm/
 .claude/worktrees/
+
+# Project docs kept local-only (brainstorms/plans/design) — purged from history
+docs/
