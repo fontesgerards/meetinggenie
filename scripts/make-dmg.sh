@@ -10,6 +10,13 @@ APP="build/MeetingGenie.app"
 NOTARY_PROFILE="${NOTARY_PROFILE:-MeetingGenie}"
 [ -d "$APP" ] || { echo "error: $APP not found" >&2; exit 1; }
 
+# Notary auth: App Store Connect API key (CI) when set, else keychain profile.
+if [ -n "${AC_API_KEY_ID:-}" ] && [ -n "${AC_API_ISSUER_ID:-}" ] && [ -n "${AC_API_KEY_PATH:-}" ]; then
+    NOTARY_AUTH=(--key "$AC_API_KEY_PATH" --key-id "$AC_API_KEY_ID" --issuer "$AC_API_ISSUER_ID")
+else
+    NOTARY_AUTH=(--keychain-profile "$NOTARY_PROFILE")
+fi
+
 VERSION="${1:-$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$APP/Contents/Info.plist")}"
 DMG="build/MeetingGenie-${VERSION}.dmg"
 STAGE="build/dmg-stage"
@@ -24,7 +31,7 @@ echo "==> Building ${DMG}"
 hdiutil create -volname "MeetingGenie" -srcfolder "$STAGE" -ov -format UDZO "$DMG" >/dev/null
 
 echo "==> Notarizing the DMG"
-xcrun notarytool submit "$DMG" --keychain-profile "$NOTARY_PROFILE" --wait
+xcrun notarytool submit "$DMG" "${NOTARY_AUTH[@]}" --wait
 xcrun stapler staple "$DMG"
 xcrun stapler validate "$DMG"
 

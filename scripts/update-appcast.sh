@@ -15,7 +15,12 @@ GA="$(find .build -path '*sparkle*/bin/generate_appcast' -type f 2>/dev/null | h
 
 PREFIX="${APPCAST_URL_PREFIX:-https://fontesgerards.github.io/meetinggenie/}"
 
-"$GA" --maximum-deltas 0 --download-url-prefix "$PREFIX" build/
+# EdDSA key: from $SPARKLE_ED_PRIVATE_KEY via stdin (CI), else the Keychain (local).
+if [ -n "${SPARKLE_ED_PRIVATE_KEY:-}" ]; then
+    printf '%s' "$SPARKLE_ED_PRIVATE_KEY" | "$GA" --maximum-deltas 0 --ed-key-file - --download-url-prefix "$PREFIX" build/
+else
+    "$GA" --maximum-deltas 0 --download-url-prefix "$PREFIX" build/
+fi
 
 echo
 echo "==> Wrote build/appcast.xml (enclosure prefix: $PREFIX)"
