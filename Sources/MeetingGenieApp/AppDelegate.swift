@@ -114,6 +114,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         checkUpdates.target = updaterController // Sparkle's built-in action — no forwarding helper
         menu.addItem(checkUpdates)
 
+        let support = NSMenuItem(
+            title: "Support MeetingGenie…",
+            action: #selector(openSupport),
+            keyEquivalent: ""
+        )
+        support.target = self // voluntary tip jar — MeetingGenie is free
+        menu.addItem(support)
+
         let quit = NSMenuItem(
             title: "Quit MeetingGenie",
             action: #selector(NSApplication.terminate(_:)),
@@ -136,5 +144,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func reopen() {
         controller.reopenLastArchivedToday()
         rebuildMenu()
+    }
+
+    @objc private func openSupport() {
+        if let url = URL(string: "https://buymeacoffee.com/fredfontes") {
+            NSWorkspace.shared.open(url)
+        }
     }
 }
