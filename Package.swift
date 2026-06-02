@@ -24,7 +24,12 @@ let package = Package(
         .executableTarget(
             name: "MeetingGenieApp",
             dependencies: ["NotchCore"],
-            swiftSettings: [.swiftLanguageMode(.v5)]
+            swiftSettings: [.swiftLanguageMode(.v5)],
+            // When bundled, the app loads Sparkle.framework from
+            // Contents/Frameworks; a SwiftPM executable needs this rpath
+            // injected or it crashes at launch once bundled (it resolves via
+            // DYLD under `swift run`, masking the problem). Plan U1/U2.
+            linkerSettings: [.unsafeFlags(["-Xlinker", "-rpath", "-Xlinker", "@loader_path/../Frameworks"])]
         ),
         .executableTarget(
             name: "OverlaySpike",
