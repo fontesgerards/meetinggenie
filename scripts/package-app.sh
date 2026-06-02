@@ -48,10 +48,16 @@ else
     swift build -c release --scratch-path .build-arm64  -Xswiftc -target -Xswiftc arm64-apple-macos13.0
     echo "    -- x86_64 slice"
     swift build -c release --scratch-path .build-x86_64 -Xswiftc -target -Xswiftc x86_64-apple-macos13.0
-    ARM_DIR="$(swift build -c release --scratch-path .build-arm64  -Xswiftc -target -Xswiftc arm64-apple-macos13.0  --show-bin-path)"
-    X86_DIR="$(swift build -c release --scratch-path .build-x86_64 -Xswiftc -target -Xswiftc x86_64-apple-macos13.0 --show-bin-path)"
-    # --show-bin-path reports the host-triple dir name even for the cross slice,
-    # but the binary inside is the requested arch and the scratch dirs differ.
+    # Both per-arch scratch builds emit to <scratch>/<host-triple>/release — the
+    # bin-path dir is named for the HOST triple even for the cross slice, so the
+    # only difference between the two is the scratch prefix. Query the base path
+    # once and swap the prefix (anchored on /.build/ so a repo living under a
+    # path containing ".build" can't false-match) instead of paying for two more
+    # package-graph evaluations.
+    BASE_BIN_DIR="$(swift build -c release --show-bin-path)"   # .../.build/<host-triple>/release
+    BIN_SUFFIX="${BASE_BIN_DIR#*/.build/}"                      # <host-triple>/release (anchored on /.build/)
+    ARM_DIR=".build-arm64/${BIN_SUFFIX}"
+    X86_DIR=".build-x86_64/${BIN_SUFFIX}"
     BIN_DIR="build/universal"
     rm -rf "$BIN_DIR"; mkdir -p "$BIN_DIR"
     lipo -create "${ARM_DIR}/MeetingGenie" "${X86_DIR}/MeetingGenie" -output "${BIN_DIR}/MeetingGenie"
