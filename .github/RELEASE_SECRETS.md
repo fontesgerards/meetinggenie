@@ -28,7 +28,7 @@ Application: … (R47R74J893)"* → right-click → **Export** → save a `.p12`
 password. Then pipe it straight into the env-scoped secret (value never hits the
 clipboard or disk; delete the `.p12` afterward — the Keychain keeps the original):
 ```sh
-base64 -i /path/to/your.p12 \
+base64 -i /path/to/your.p12 | tr -d '\n' \
   | gh secret set DEVELOPER_ID_CERT_P12_BASE64 --env release -R fontesgerards/meetinggenie
 gh secret set DEVELOPER_ID_CERT_PASSWORD --env release -R fontesgerards/meetinggenie  # paste export password
 ```
@@ -40,7 +40,7 @@ ID** and, at top, the **Issuer ID**.
 ```sh
 gh secret set AC_API_KEY_ID    --env release -R fontesgerards/meetinggenie   # paste Key ID (in the .p8 filename)
 gh secret set AC_API_ISSUER_ID --env release -R fontesgerards/meetinggenie   # paste Issuer ID (UUID atop the Keys tab)
-base64 -i ~/Downloads/AuthKey_XXXXXXXXXX.p8 \
+base64 -i ~/Downloads/AuthKey_XXXXXXXXXX.p8 | tr -d '\n' \
   | gh secret set AC_API_KEY_P8_BASE64 --env release -R fontesgerards/meetinggenie
 ```
 
