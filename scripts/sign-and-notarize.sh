@@ -9,11 +9,26 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 APP="build/MeetingGenie.app"
-IDENTITY="${CODESIGN_IDENTITY:-Developer ID Application: Frederic Fontes Gerards (R47R74J893)}"
 NOTARY_PROFILE="${NOTARY_PROFILE:-MeetingGenie}"
 ENTITLEMENTS="packaging/entitlements.plist"
 
 [ -d "$APP" ] || { echo "error: $APP not found — run scripts/package-app.sh first" >&2; exit 1; }
+
+# Signing identity: honor $CODESIGN_IDENTITY if set, else auto-detect the lone
+# "Developer ID Application" identity in the keychain. Nothing is hardcoded in
+# the repo; error out on zero or multiple so the maintainer chooses explicitly.
+IDENTITY="${CODESIGN_IDENTITY:-}"
+if [ -z "$IDENTITY" ]; then
+    IFS=$'\n' read -r -d '' -a _ids < <(security find-identity -v -p codesigning \
+        | sed -n 's/.*"\(Developer ID Application: [^"]*\)".*/\1/p' && printf '\0')
+    case "${#_ids[@]}" in
+        1) IDENTITY="${_ids[0]}" ;;
+        0) echo "error: no 'Developer ID Application' identity in the keychain. Install one (Xcode → Settings → Accounts → Manage Certificates) or set CODESIGN_IDENTITY." >&2; exit 1 ;;
+        *) echo "error: multiple Developer ID Application identities found; set CODESIGN_IDENTITY to one of:" >&2
+           printf '  %s\n' "${_ids[@]}" >&2; exit 1 ;;
+    esac
+fi
+echo "==> Signing identity: $IDENTITY"
 
 # Pre-flight: the notary profile must exist; never fall back to inline creds.
 if ! xcrun notarytool history --keychain-profile "$NOTARY_PROFILE" >/dev/null 2>&1; then
