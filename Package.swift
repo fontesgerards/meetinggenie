@@ -11,6 +11,9 @@ let package = Package(
         .executable(name: "overlay-spike", targets: ["OverlaySpike"]),
         .executable(name: "selfcheck", targets: ["selfcheck"]),
     ],
+    dependencies: [
+        .package(url: "https://github.com/sparkle-project/Sparkle", from: "2.6.0"),
+    ],
     targets: [
         .target(
             name: "NotchCore",
@@ -23,7 +26,7 @@ let package = Package(
         ),
         .executableTarget(
             name: "MeetingGenieApp",
-            dependencies: ["NotchCore"],
+            dependencies: ["NotchCore", .product(name: "Sparkle", package: "Sparkle")],
             swiftSettings: [.swiftLanguageMode(.v5)],
             // When bundled, the app loads Sparkle.framework from
             // Contents/Frameworks; a SwiftPM executable needs this rpath

@@ -33,9 +33,9 @@ public enum SkillDoc {
     ]
 
     /// The Homebrew cask reference the bootstrap installs from. Provisional
-    /// until the `fontesgerards/homebrew-tap` repo exists; pinned (never a bare
-    /// placeholder) so an agent can't be steered to a spoofed tap.
-    public static let caskRef = "fontesgerards/tap/meetinggenie"
+    /// tap lives at `github.com/fontesgerards/homebrew-meetinggenie-tap`; pinned
+    /// (never a bare placeholder) so an agent can't be steered to a spoofed tap.
+    public static let caskRef = "fontesgerards/meetinggenie-tap/meetinggenie"
 
     /// The bootstrap one-liner: install MeetingGenie (which carries `notch`)
     /// only if `notch` isn't already on PATH. Idempotent, non-interactive.

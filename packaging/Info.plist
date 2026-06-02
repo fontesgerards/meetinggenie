@@ -13,7 +13,7 @@
     <key>CFBundleDisplayName</key>
     <string>MeetingGenie</string>
     <key>CFBundleIdentifier</key>
-    <string>app.meetinggenie</string>
+    <string>com.fontesgerards.meetinggenie</string>
     <key>CFBundleExecutable</key>
     <string>MeetingGenie</string>
     <key>CFBundlePackageType</key>
@@ -30,12 +30,14 @@
     <true/>
     <key>NSHighResolutionCapable</key>
     <true/>
-    <!--
-    Filled in by U2/U9 once Sparkle + the EdDSA keypair exist:
+    <!-- Sparkle auto-update (U2). The feed is https and is the app's only
+         network call. SUPublicEDKey is the public half of the EdDSA keypair
+         whose private key lives in the maintainer's login Keychain. -->
     <key>SUFeedURL</key>
-    <string>https://…/appcast.xml</string>
+    <string>https://fontesgerards.github.io/meetinggenie/appcast.xml</string>
     <key>SUPublicEDKey</key>
-    <string>__SPARKLE_PUBLIC_ED_KEY__</string>
-    -->
+    <string>ZkySM601fAVqLhBah0nECljerD65RA67n0o+40QhhXM=</string>
+    <key>SUEnableInstallerLauncherService</key>
+    <false/>
 </dict>
 </plist>

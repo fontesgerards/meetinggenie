@@ -64,6 +64,14 @@ echo "==> Verifying universal slices"
 lipo -info "${OUT}/Contents/MacOS/MeetingGenie"
 lipo -info "${OUT}/Contents/Resources/notch"
 
+echo "==> Embedding Sparkle.framework"
+# Locate the framework rather than hardcoding the arch-slice path (robust across
+# Sparkle/SwiftPM versions). On macOS the xcframework yields one universal slice.
+SPARKLE_FW="$(find .build/artifacts -name 'Sparkle.framework' -type d 2>/dev/null | head -1)"
+[ -n "$SPARKLE_FW" ] && [ -d "$SPARKLE_FW" ] || { echo "error: Sparkle.framework not found under .build/artifacts (run 'swift package resolve')" >&2; exit 1; }
+# ditto preserves the Versions/Current symlink the framework needs to load.
+ditto "$SPARKLE_FW" "${OUT}/Contents/Frameworks/Sparkle.framework"
+
 echo "==> Rendering Info.plist (v${SHORT_VERSION} build ${BUILD_VERSION})"
 sed -e "s/__SHORT_VERSION__/${SHORT_VERSION}/" \
     -e "s/__BUILD_VERSION__/${BUILD_VERSION}/" \
