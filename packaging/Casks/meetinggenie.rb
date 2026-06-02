@@ -8,9 +8,9 @@
 # so bare `brew upgrade` leaves it alone.
 cask "meetinggenie" do
   version "0.1.0"
-  sha256 "FILL_FROM_make-dmg.sh"
+  sha256 "7cf1efbfa03af008268b58ecb106f068f001384a83f24b6d6bf04c3a648284d0"
 
-  url "https://fontesgerards.github.io/meetinggenie/MeetingGenie-#{version}.dmg"
+  url "https://github.com/fontesgerards/meetinggenie/releases/download/v#{version}/MeetingGenie-#{version}.dmg"
   name "MeetingGenie"
   desc "Privacy-first macOS notch app for meeting talking points; ships the notch CLI"
   homepage "https://fontesgerards.github.io/meetinggenie/"

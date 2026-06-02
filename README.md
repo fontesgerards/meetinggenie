@@ -8,6 +8,16 @@ times and note text — no calendar, no integrations.
 See [`docs/brainstorms/`](docs/brainstorms/) for the requirements and
 [`docs/plans/`](docs/plans/) for the implementation plan.
 
+## Install
+
+```bash
+brew install --cask fontesgerards/meetinggenie-tap/meetinggenie
+```
+
+Installs the notarized menu-bar app and puts the `notch` CLI on your `PATH`. The
+app self-updates in the background via Sparkle. Landing page:
+<https://fontesgerards.github.io/meetinggenie/>.
+
 ## Layout
 
 Everything builds with SwiftPM (no Xcode project required):
