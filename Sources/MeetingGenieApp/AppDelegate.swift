@@ -122,6 +122,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         support.target = self // voluntary tip jar — MeetingGenie is free
         menu.addItem(support)
 
+        menu.addItem(.separator()) // HIG: set Quit apart so it isn't hit by accident
+
         let quit = NSMenuItem(
             title: "Quit MeetingGenie",
             action: #selector(NSApplication.terminate(_:)),
