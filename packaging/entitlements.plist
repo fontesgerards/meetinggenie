@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Minimal hardened-runtime entitlements for the Developer ID (non-sandboxed)
+  MeetingGenie app (plan U3). The global mouse-move monitor and the
+  screen-saver-level overlay need NO entitlements; Sparkle's helpers are signed
+  with the same Developer ID team so Library Validation passes without
+  disabling it. No app-sandbox, no get-task-allow.
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+</dict>
+</plist>

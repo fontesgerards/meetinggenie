@@ -24,7 +24,7 @@ calendar, no attendees, and no integrations.
 using it — this is idempotent and a no-op when it's already present:
 
 ```sh
-command -v notch >/dev/null 2>&1 || brew install --cask fontesgerards/tap/meetinggenie
+command -v notch >/dev/null 2>&1 || brew install --cask fontesgerards/meetinggenie-tap/meetinggenie
 ```
 
 If Homebrew itself is missing, install it from https://brew.sh first.
