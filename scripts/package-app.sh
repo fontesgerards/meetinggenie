@@ -65,8 +65,10 @@ lipo -info "${OUT}/Contents/MacOS/MeetingGenie"
 lipo -info "${OUT}/Contents/Resources/notch"
 
 echo "==> Embedding Sparkle.framework"
-SPARKLE_FW=".build/artifacts/sparkle/Sparkle/Sparkle.xcframework/macos-arm64_x86_64/Sparkle.framework"
-[ -d "$SPARKLE_FW" ] || { echo "error: Sparkle.framework not found at $SPARKLE_FW (run swift package resolve)" >&2; exit 1; }
+# Locate the framework rather than hardcoding the arch-slice path (robust across
+# Sparkle/SwiftPM versions). On macOS the xcframework yields one universal slice.
+SPARKLE_FW="$(find .build/artifacts -name 'Sparkle.framework' -type d 2>/dev/null | head -1)"
+[ -n "$SPARKLE_FW" ] && [ -d "$SPARKLE_FW" ] || { echo "error: Sparkle.framework not found under .build/artifacts (run 'swift package resolve')" >&2; exit 1; }
 # ditto preserves the Versions/Current symlink the framework needs to load.
 ditto "$SPARKLE_FW" "${OUT}/Contents/Frameworks/Sparkle.framework"
 

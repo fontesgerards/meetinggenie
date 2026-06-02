@@ -108,10 +108,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let checkUpdates = NSMenuItem(
             title: "Check for Updates…",
-            action: #selector(checkForUpdates),
+            action: #selector(SPUStandardUpdaterController.checkForUpdates(_:)),
             keyEquivalent: ""
         )
-        checkUpdates.target = self
+        checkUpdates.target = updaterController // Sparkle's built-in action — no forwarding helper
         menu.addItem(checkUpdates)
 
         let quit = NSMenuItem(
@@ -136,9 +136,5 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func reopen() {
         controller.reopenLastArchivedToday()
         rebuildMenu()
-    }
-
-    @objc private func checkForUpdates() {
-        updaterController?.checkForUpdates(nil)
     }
 }
