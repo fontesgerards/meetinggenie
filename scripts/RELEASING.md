@@ -72,8 +72,10 @@ To prove the build/bundle before tagging — produces `build/MeetingGenie.app`
   so a re-run is safe. To retry the same version, prefer cutting the **next
   patch** (`vX.Y.(Z+1)`) over force-moving a tag — moving a remote tag is a
   destructive git op and a published tag must never be rewritten.
-- **Setting file-derived secrets:** `base64 -i <file> | gh secret set …` must be
-  run where the shell can actually read the file. macOS TCC blocks sandboxed/
+- **Setting file-derived secrets:** `base64 -i <file> | gh secret set <NAME>
+  --env release` (the `--env release` is required — without it `gh` writes a
+  repo-level secret that bypasses the gate) must be run where the shell can
+  actually read the file. macOS TCC blocks sandboxed/
   agent shells from `~/Documents` and `~/Downloads`; a silently-empty secret is
   the result. Run it in a real Terminal with folder access (and verify the
   base64 length is non-zero), per `.github/RELEASE_SECRETS.md`.
