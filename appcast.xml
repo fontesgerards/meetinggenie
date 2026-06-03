@@ -3,12 +3,12 @@
     <channel>
         <title>MeetingGenie</title>
         <item>
-            <title>0.1.0</title>
-            <pubDate>Tue, 02 Jun 2026 09:37:38 -0400</pubDate>
-            <sparkle:version>51</sparkle:version>
-            <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
+            <title>0.1.2</title>
+            <pubDate>Wed, 03 Jun 2026 12:45:11 +0000</pubDate>
+            <sparkle:version>61</sparkle:version>
+            <sparkle:shortVersionString>0.1.2</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
-            <enclosure url="https://github.com/fontesgerards/meetinggenie/releases/download/v0.1.0/MeetingGenie-0.1.0.dmg" length="2046721" type="application/octet-stream" sparkle:edSignature="2RVo+NzkWiCNsLXGXQe1+P8TQmgLCzDuB6sk3tr/CM52W/cBW+yFrV59tbzyio42EqinFAUCsRAzuMWtMf9LAA=="/>
+            <enclosure url="https://github.com/fontesgerards/meetinggenie/releases/download/v0.1.2/MeetingGenie-0.1.2.dmg" length="2140027" type="application/octet-stream" sparkle:edSignature="ATFbPGzK/6841tVraeg9TJq1veMfTlooYEcVZVbf6EyXw4l6Xj1n5m5PtbMonRxkq9WlZPrB9gPl6nrE9MrQBQ=="/>
         </item>
     </channel>
 </rss>
